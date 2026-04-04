@@ -1,0 +1,568 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { pdf } from "@react-pdf/renderer";
+import { api } from "../../convex/_generated/api";
+import Navbar from "@/components/Navbar";
+import TLSReportPDF from "@/components/TLSReportPDF";
+
+export default function Report() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const report = useQuery(api.diagnose.getReport, { reportId: id ?? "" });
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    if (report !== undefined) {
+      console.log("REPORT DATA:", report);
+    }
+  }, [report]);
+
+  if (report === undefined) {
+    return (
+      <div style={loadingScreenStyle}>
+        <div style={spinnerStyle} />
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div style={emptyScreenStyle}>
+        <div style={{ fontSize: 14, color: "#FFFFFF" }}>Loading report...</div>
+        <button onClick={() => navigate("/dashboard")} style={backBtnStyle}>
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  if (!report || !report.diagnosis) {
+    return <div style={invalidScreenStyle}>Invalid report data</div>;
+  }
+
+  const diagnosis =
+    report.diagnosis && typeof report.diagnosis === "object"
+      ? (report.diagnosis as Record<string, unknown>)
+      : {};
+
+  const treatmentItems = (() => {
+    const value = diagnosis.treatment;
+    if (!Array.isArray(value)) return [];
+    return value.filter(
+      (item): item is Record<string, unknown> => !!item && typeof item === "object",
+    );
+  })();
+
+  const observations = Array.isArray(diagnosis.observations) ? diagnosis.observations : [];
+  const causes = Array.isArray(diagnosis.causes) ? diagnosis.causes : [];
+  const prevention = Array.isArray(diagnosis.prevention) ? diagnosis.prevention : [];
+  const labTests = Array.isArray(diagnosis.labTests) ? diagnosis.labTests : [];
+  const seasonalCalendar = Array.isArray(diagnosis.seasonalCalendar)
+    ? diagnosis.seasonalCalendar
+    : [];
+
+  const date = report?.createdAt
+    ? new Date(report.createdAt).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "—";
+
+  const handleDownloadPdf = async () => {
+    if (!report || !report.diagnosis) return;
+
+    try {
+      setGenerating(true);
+      const blob = await pdf(<TLSReportPDF report={report} />).toBlob();
+      const url = URL.createObjectURL(blob);
+
+      // iOS Safari — open in new tab so user can use native share/save
+      const link = document.createElement("a");
+      link.href = url;
+      link.target = "_blank";
+      link.download = `${report.reportId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Revoke after delay
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    } catch (err) {
+      console.error("PDF error:", err);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  try {
+    return (
+      <div style={{ background: "#000000", minHeight: "100vh" }}>
+        <Navbar />
+        <div style={{ padding: "80px 28px 48px", maxWidth: 560, margin: "0 auto" }}>
+          <button
+            onClick={() => navigate("/history")}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#FFFFFF",
+              fontFamily: "'DM Sans',sans-serif",
+              fontSize: 13,
+              marginBottom: 20,
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            All Reports
+          </button>
+
+          <div
+            style={{
+              background: "#0C1618",
+              borderRadius: 20,
+              padding: "22px 20px",
+              marginBottom: 12,
+              border: "1px solid #004643",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 10,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#FFFFFF",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  Truffaire Labs
+                </div>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "rgba(255,255,255,0.5)",
+                    fontFamily: "monospace",
+                    marginTop: 2,
+                  }}
+                >
+                  {report.reportId}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "#004643",
+                  color: "#FFFFFF",
+                  fontSize: 9,
+                  fontWeight: 600,
+                  padding: "5px 12px",
+                  borderRadius: 100,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Certified
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { k: "Crop", v: report.crop || "—" },
+                { k: "Language", v: report.language || "—" },
+                { k: "Date", v: date },
+              ].map((row) => (
+                <div key={row.k} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: "rgba(255,255,255,0.45)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {row.k}
+                  </span>
+                  <span style={{ fontSize: 12, color: "#FFFFFF", fontWeight: 500 }}>
+                    {row.v}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Section title="Diagnosis">
+            <ReportRow k="Primary" v={String(report?.diagnosis?.primary || "Not available")} />
+            <ReportRow k="Secondary" v={String(report?.diagnosis?.secondary || "None")} />
+            <ReportRow
+              k="Contributing"
+              v={String(report?.diagnosis?.contributing || "None")}
+            />
+            <ReportRow
+              k="Severity"
+              v={<SeverityPill s={String(report?.diagnosis?.severity || "Unknown")} />}
+            />
+            <ReportRow
+              k="Urgency"
+              v={<UrgencyPill u={String(report?.diagnosis?.urgency || "Not available")} />}
+              last
+            />
+          </Section>
+
+          <Section title="Leaf Observations">
+            {observations.length > 0 ? (
+              observations.map((obs: string, i: number) => (
+                <BulletItem key={i} text={obs} last={i === observations.length - 1} />
+              ))
+            ) : (
+              <BulletItem text="Not available" last />
+            )}
+          </Section>
+
+          <Section title="Causes">
+            {causes.length > 0 ? (
+              causes.map((cause: string, i: number) => (
+                <BulletItem key={i} text={cause} last={i === causes.length - 1} />
+              ))
+            ) : (
+              <BulletItem text="Not available" last />
+            )}
+          </Section>
+
+          <Section title="Treatment Protocol">
+            {treatmentItems.length > 0 ? (
+              treatmentItems.map((item, i) => (
+                <div
+                  key={i}
+                  style={{
+                    paddingBottom: i < treatmentItems.length - 1 ? 14 : 0,
+                    marginBottom: i < treatmentItems.length - 1 ? 14 : 0,
+                    borderBottom:
+                      i < treatmentItems.length - 1 ? "1px solid #004643" : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "#FFFFFF" }}>
+                      {String(item.treatment ?? "Not available")}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        background: "#004643",
+                        color: "#FFFFFF",
+                        padding: "2px 8px",
+                        borderRadius: 100,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {String(item.priority ?? "Advisory")}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#FFFFFF", marginBottom: 3 }}>
+                    <strong style={{ color: "#FFFFFF" }}>Product:</strong>{" "}
+                    {String(item.product ?? "Not available")}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#FFFFFF" }}>
+                    <strong style={{ color: "#FFFFFF" }}>Method:</strong>{" "}
+                    {String(item.method ?? "Not available")}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <BulletItem text={String(report?.diagnosis?.treatment || "Not available")} last />
+            )}
+          </Section>
+
+          <Section title="Prevention">
+            {prevention.length > 0 ? (
+              prevention.map((item: string, i: number) => (
+                <BulletItem key={i} text={item} last={i === prevention.length - 1} />
+              ))
+            ) : (
+              <BulletItem text="Not available" last />
+            )}
+          </Section>
+
+          <Section title="Recommended Lab Tests">
+            {labTests.length > 0 ? (
+              labTests.map((item: string, i: number) => (
+                <BulletItem key={i} text={item} last={i === labTests.length - 1} />
+              ))
+            ) : (
+              <BulletItem text="Not available" last />
+            )}
+          </Section>
+
+          {seasonalCalendar.length > 0 && (
+            <Section title="Seasonal Calendar">
+              {seasonalCalendar.map((entry: any, i: number) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    padding: "10px 0",
+                    borderBottom:
+                      i < seasonalCalendar.length - 1 ? "1px solid #004643" : "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#FFFFFF",
+                      minWidth: 80,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {String(entry?.period ?? "Not available")}
+                  </span>
+                  <span style={{ fontSize: 12, color: "#FFFFFF", fontWeight: 300 }}>
+                    {String(entry?.action ?? "Not available")}
+                  </span>
+                </div>
+              ))}
+            </Section>
+          )}
+
+          <div style={{ marginTop: 28, paddingTop: 28, borderTop: "1px solid #004643" }}>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={generating}
+              style={{
+                width: "100%",
+                padding: 16,
+                borderRadius: 14,
+                background: "#004643",
+                color: "#FFFFFF",
+                border: "none",
+                fontFamily: "'DM Sans',sans-serif",
+                fontSize: 15,
+                fontWeight: 500,
+                cursor: generating ? "wait" : "pointer",
+                letterSpacing: "0.01em",
+                opacity: generating ? 0.8 : 1,
+              }}
+            >
+              {generating ? "Generating PDF..." : "Download Report PDF"}
+            </button>
+
+            <p
+              style={{
+                fontSize: 10,
+                color: "#FFFFFF",
+                textAlign: "center",
+                marginTop: 12,
+                fontWeight: 300,
+                lineHeight: 1.6,
+              }}
+            >
+              This report is issued by Truffaire Labs Diagnostic Engine for advisory purposes
+              only. It does not substitute certified agronomist consultation.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  } catch (e) {
+    console.error("REPORT CRASH:", e);
+    return <div style={invalidScreenStyle}>Report failed to render</div>;
+  }
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: "#0C1618",
+        borderRadius: 16,
+        padding: "18px 16px",
+        marginBottom: 10,
+        border: "1px solid #004643",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: "#FFFFFF",
+          marginBottom: 14,
+        }}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ReportRow({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "10px 0",
+        borderBottom: last ? "none" : "1px solid #004643",
+        gap: 10,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          color: "#FFFFFF",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          flexShrink: 0,
+        }}
+      >
+        {k}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 500, textAlign: "right", color: "#FFFFFF" }}>
+        {v}
+      </span>
+    </div>
+  );
+}
+
+function BulletItem({ text, last }: { text: string; last?: boolean }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 10,
+        padding: "8px 0",
+        borderBottom: last ? "none" : "1px solid #004643",
+        alignItems: "flex-start",
+      }}
+    >
+      <div
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: "50%",
+          background: "#FFFFFF",
+          flexShrink: 0,
+          marginTop: 5,
+        }}
+      />
+      <span style={{ fontSize: 13, fontWeight: 300, color: "#FFFFFF", lineHeight: 1.6 }}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function SeverityPill({ s }: { s: string }) {
+  return (
+    <span
+      style={{
+        background: "#004643",
+        color: "#FFFFFF",
+        fontSize: 11,
+        fontWeight: 500,
+        padding: "3px 10px",
+        borderRadius: 100,
+      }}
+    >
+      {s}
+    </span>
+  );
+}
+
+function UrgencyPill({ u }: { u: string }) {
+  return (
+    <span
+      style={{
+        background: "#004643",
+        color: "#FFFFFF",
+        fontSize: 11,
+        fontWeight: 500,
+        padding: "3px 10px",
+        borderRadius: 100,
+      }}
+    >
+      {u}
+    </span>
+  );
+}
+
+const loadingScreenStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#000000",
+};
+
+const spinnerStyle: React.CSSProperties = {
+  width: 20,
+  height: 20,
+  border: "2px solid #FFFFFF",
+  borderTopColor: "#004643",
+  borderRadius: "50%",
+  animation: "spin 1s linear infinite",
+};
+
+const emptyScreenStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexDirection: "column",
+  gap: 12,
+  background: "#000000",
+};
+
+const invalidScreenStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#000000",
+  color: "#FFFFFF",
+  fontFamily: "'DM Sans',sans-serif",
+};
+
+const backBtnStyle: React.CSSProperties = {
+  background: "#004643",
+  color: "#FFFFFF",
+  border: "none",
+  borderRadius: 100,
+  padding: "10px 20px",
+  fontFamily: "'DM Sans',sans-serif",
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: "pointer",
+};

@@ -61,8 +61,8 @@ export default function Landing() {
   }, []);
 
   const handleScan = () => {
-    if (isSignedIn) navigate("/scan");
-    else openSignIn({ redirectUrl: "/scan" });
+    if (isSignedIn) navigate("/dashboard");
+    else openSignIn({ redirectUrl: "/dashboard" });
   };
 
   const handleBuy = () => {

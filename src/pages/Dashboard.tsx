@@ -170,7 +170,13 @@ export default function Dashboard() {
         ) : null}
 
         <button
-          onClick={() => navigate("/scan")}
+          onClick={() => {
+            if (displayCredits > 0) {
+              navigate("/scan");
+            } else {
+              document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+            }
+          }}
           style={{
             width: "100%", padding: "16px", borderRadius: 14,
             background: "#004643", color: "white", border: "none",
@@ -184,7 +190,7 @@ export default function Dashboard() {
           {displayCredits > 0 ? "New Scan" : "Buy Credits to Scan"}
         </button>
 
-        <div style={{ marginBottom: 36 }}>
+        <div id="pricing" style={{ marginBottom: 36 }}>
           <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", color: "#AAAAAA", marginBottom: 14 }}>
             Credit Packs
           </div>

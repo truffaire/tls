@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -100,6 +100,11 @@ export default function Scan() {
       setIsSubmitting(false);
     }
   };
+
+  // Redirect to dashboard if credits are loaded and zero
+  useEffect(() => {
+    if (credits === 0) navigate("/dashboard");
+  }, [credits, navigate]);
 
   const filteredCrops = FEATURED_CROPS.filter((c) =>
     c.toLowerCase().includes(cropSearch.toLowerCase())

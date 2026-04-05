@@ -3,11 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --dark:      #0C1618;
-  --teal:      #004643;
-  --teal-mid:  #005c58;
-  --teal-pale: #e8f0ef;
+  --dark:         #0C1618;
+  --teal:         #004643;
+  --teal-mid:     #005c58;
+  --teal-pale:    #e8f0ef;
+  --page-padding: 20px;
+  --max-width:    1200px;
 }
+
+@media (min-width: 768px)  { :root { --page-padding: 40px; } }
+@media (min-width: 1024px) { :root { --page-padding: 60px; } }
+@media (min-width: 1440px) { :root { --page-padding: 80px; } }
 
 * { box-sizing: border-box; }
 

@@ -289,7 +289,7 @@ const S = StyleSheet.create({
   // ── Observations / bullets ──
   numberedItem: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 8,
     alignItems: "flex-start",
   },
   numberedBadge: {
@@ -310,14 +310,14 @@ const S = StyleSheet.create({
   },
   numberedText: {
     flex: 1,
-    fontSize: 9.5,
+    fontSize: 9,
     color: C.dark,
-    lineHeight: 1.55,
+    lineHeight: 1.5,
     paddingTop: 3,
   },
   bulletItem: {
     flexDirection: "row",
-    marginBottom: 10,
+    marginBottom: 7,
     alignItems: "flex-start",
   },
   bulletDot: {
@@ -331,9 +331,9 @@ const S = StyleSheet.create({
   },
   bulletText: {
     flex: 1,
-    fontSize: 9.5,
+    fontSize: 9,
     color: C.dark,
-    lineHeight: 1.55,
+    lineHeight: 1.5,
   },
 
   // ── Treatment cards ──
@@ -417,41 +417,41 @@ const S = StyleSheet.create({
   // ── Company info block ──
   companyBox: {
     backgroundColor: C.dark,
-    padding: 20,
+    padding: 14,
     marginTop: 4,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   companyName: {
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: C.white,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   companyLine: {
-    fontSize: 8.5,
+    fontSize: 8,
     color: "rgba(255,255,255,0.5)",
-    marginBottom: 3,
-    lineHeight: 1.5,
+    marginBottom: 2,
+    lineHeight: 1.4,
   },
 
   // ── Disclaimer ──
   disclaimerBox: {
     borderWidth: 1,
     borderColor: C.border,
-    padding: 14,
-    marginBottom: 14,
+    padding: 10,
+    marginBottom: 10,
   },
   disclaimerTitle: {
     fontSize: 8,
     fontFamily: "Helvetica-Bold",
     color: C.dark,
     letterSpacing: 0.8,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   disclaimerText: {
-    fontSize: 7.5,
+    fontSize: 7,
     color: C.muted,
-    lineHeight: 1.6,
+    lineHeight: 1.5,
   },
 
   // ── Verification box ──
@@ -459,8 +459,8 @@ const S = StyleSheet.create({
     flexDirection: "row",
     borderWidth: 1,
     borderColor: C.teal,
-    padding: 12,
-    marginBottom: 14,
+    padding: 10,
+    marginBottom: 10,
   },
   verifyLeft: {
     flex: 1,
@@ -613,21 +613,21 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
       ? report.diagnosis
       : {};
 
-  const observations = Array.isArray(diagnosis.observations)
+  const observations = (Array.isArray(diagnosis.observations)
     ? diagnosis.observations.filter((i): i is string => typeof i === "string")
-    : [];
-  const causes = Array.isArray(diagnosis.causes)
+    : []).slice(0, 4);
+  const causes = (Array.isArray(diagnosis.causes)
     ? diagnosis.causes.filter((i): i is string => typeof i === "string")
-    : [];
-  const prevention = Array.isArray(diagnosis.prevention)
+    : []).slice(0, 4);
+  const prevention = (Array.isArray(diagnosis.prevention)
     ? diagnosis.prevention.filter((i): i is string => typeof i === "string")
-    : [];
-  const labTests = Array.isArray(diagnosis.labTests)
+    : []).slice(0, 5);
+  const labTests = (Array.isArray(diagnosis.labTests)
     ? diagnosis.labTests.filter((i): i is string => typeof i === "string")
-    : [];
-  const seasonalCalendar = Array.isArray(diagnosis.seasonalCalendar)
+    : []).slice(0, 4);
+  const seasonalCalendar = (Array.isArray(diagnosis.seasonalCalendar)
     ? diagnosis.seasonalCalendar.filter((i): i is CalItem => !!i && typeof i === "object")
-    : [];
+    : []).slice(0, 8);
   const treatments = Array.isArray(diagnosis.treatment)
     ? diagnosis.treatment.filter((i): i is TreatmentItem => !!i && typeof i === "object")
     : [];
@@ -1045,7 +1045,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             )
           }
 
-          <View style={S.spacer24} />
+          <View style={S.spacer16} />
 
           {/* Verification */}
           <View style={S.verifyBox}>

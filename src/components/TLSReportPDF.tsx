@@ -38,11 +38,11 @@ const S = StyleSheet.create({
   pageHeaderBand: {
     backgroundColor: C.dark,
     paddingHorizontal: 40,
-    paddingVertical: 18,
+    paddingVertical: 14,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   pageHeaderBrandText: {
     color: C.white,
@@ -86,13 +86,13 @@ const S = StyleSheet.create({
     color: C.teal,
     letterSpacing: 1.8,
     textTransform: "uppercase",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: "Helvetica-Bold",
     color: C.dark,
-    marginBottom: 18,
+    marginBottom: 14,
   },
 
   // ── Divider ──
@@ -256,7 +256,7 @@ const S = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingVertical: 9,
+    paddingVertical: 7,
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -289,7 +289,7 @@ const S = StyleSheet.create({
   // ── Observations / bullets ──
   numberedItem: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 8,
     alignItems: "flex-start",
   },
   numberedBadge: {
@@ -317,7 +317,7 @@ const S = StyleSheet.create({
   },
   bulletItem: {
     flexDirection: "row",
-    marginBottom: 10,
+    marginBottom: 7,
     alignItems: "flex-start",
   },
   bulletDot: {
@@ -417,9 +417,9 @@ const S = StyleSheet.create({
   // ── Company info block ──
   companyBox: {
     backgroundColor: C.dark,
-    padding: 20,
+    padding: 14,
     marginTop: 4,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   companyName: {
     fontSize: 11,
@@ -438,8 +438,8 @@ const S = StyleSheet.create({
   disclaimerBox: {
     borderWidth: 1,
     borderColor: C.border,
-    padding: 14,
-    marginBottom: 14,
+    padding: 10,
+    marginBottom: 10,
   },
   disclaimerTitle: {
     fontSize: 8,
@@ -459,8 +459,8 @@ const S = StyleSheet.create({
     flexDirection: "row",
     borderWidth: 1,
     borderColor: C.teal,
-    padding: 12,
-    marginBottom: 14,
+    padding: 10,
+    marginBottom: 10,
   },
   verifyLeft: {
     flex: 1,
@@ -479,10 +479,10 @@ const S = StyleSheet.create({
   },
 
   // ── Spacer ──
-  spacer8:  { height: 8 },
-  spacer16: { height: 16 },
-  spacer24: { height: 24 },
-  spacer32: { height: 32 },
+  spacer8:  { height: 6 },
+  spacer16: { height: 12 },
+  spacer24: { height: 16 },
+  spacer32: { height: 24 },
 
   // ── Leaf annotation table ──
   annotHeader: {
@@ -560,8 +560,10 @@ function WeatherSection({ wd }: { wd: { temp?: number; humidity?: number; descri
     <>
       <View style={S.divider} />
       <View style={S.spacer8} />
-      <Text style={S.sectionLabel}>Environmental Conditions</Text>
-      <Text style={S.sectionTitle}>Weather at Farm Location</Text>
+      <View minPresenceAhead={40}>
+        <Text style={S.sectionLabel}>Environmental Conditions</Text>
+        <Text style={S.sectionTitle}>Weather at Farm Location</Text>
+      </View>
       {rows.map((row, i) => (
         <View key={row.label} style={i === rows.length - 1 ? { ...S.diagRow, ...S.diagRowLast } : S.diagRow}>
           <Text style={S.diagRowKey}>{row.label}</Text>
@@ -731,8 +733,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
         <PageHeader reportId={reportId} page="Page 2" />
 
         <View style={S.body}>
-          <Text style={S.sectionLabel}>Diagnosis Summary</Text>
-          <Text style={S.sectionTitle}>Clinical Findings</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Diagnosis Summary</Text>
+            <Text style={S.sectionTitle}>Clinical Findings</Text>
+          </View>
 
           {/* Primary diagnosis box */}
           <View style={S.diagPrimaryBox}>
@@ -833,8 +837,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
 
         <View style={S.body}>
           {/* Observations */}
-          <Text style={S.sectionLabel}>Field Analysis</Text>
-          <Text style={S.sectionTitle}>Leaf Observations</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Field Analysis</Text>
+            <Text style={S.sectionTitle}>Leaf Observations</Text>
+          </View>
 
           {observations.length > 0
             ? observations.map((obs, i) => (
@@ -853,8 +859,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             <>
               <View style={S.divider} />
               <View style={S.spacer8} />
-              <Text style={S.sectionLabel}>Symptom Mapping</Text>
-              <Text style={S.sectionTitle}>Symptom Location Map</Text>
+              <View minPresenceAhead={40}>
+                <Text style={S.sectionLabel}>Symptom Mapping</Text>
+                <Text style={S.sectionTitle}>Symptom Location Map</Text>
+              </View>
 
               {/* Table header */}
               <View style={{ flexDirection: "row", backgroundColor: C.dark, paddingHorizontal: 10, paddingVertical: 7 }}>
@@ -895,8 +903,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
           <View style={S.spacer8} />
 
           {/* Causes */}
-          <Text style={S.sectionLabel}>Aetiology</Text>
-          <Text style={S.sectionTitle}>Root Causes</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Aetiology</Text>
+            <Text style={S.sectionTitle}>Root Causes</Text>
+          </View>
 
           {causes.length > 0
             ? causes.map((cause, i) => (
@@ -919,8 +929,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
         <PageHeader reportId={reportId} page="Page 4" />
 
         <View style={S.body}>
-          <Text style={S.sectionLabel}>Intervention</Text>
-          <Text style={S.sectionTitle}>Treatment Protocol</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Intervention</Text>
+            <Text style={S.sectionTitle}>Treatment Protocol</Text>
+          </View>
 
           {treatments.length > 0
             ? treatments.map((item, i) => {
@@ -967,8 +979,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
 
         <View style={S.body}>
           {/* Prevention */}
-          <Text style={S.sectionLabel}>Agronomic Guidance</Text>
-          <Text style={S.sectionTitle}>Prevention Measures</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Agronomic Guidance</Text>
+            <Text style={S.sectionTitle}>Prevention Measures</Text>
+          </View>
 
           {prevention.length > 0
             ? prevention.map((item, i) => (
@@ -986,8 +1000,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
           <View style={S.spacer8} />
 
           {/* Lab Tests */}
-          <Text style={S.sectionLabel}>Laboratory</Text>
-          <Text style={S.sectionTitle}>Recommended Lab Tests</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Laboratory</Text>
+            <Text style={S.sectionTitle}>Recommended Lab Tests</Text>
+          </View>
 
           {labTests.length > 0
             ? labTests.map((item, i) => (
@@ -1019,8 +1035,10 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
         <PageHeader reportId={reportId} page="Page 6" />
 
         <View style={S.body}>
-          <Text style={S.sectionLabel}>Crop Calendar</Text>
-          <Text style={S.sectionTitle}>Seasonal Action Plan</Text>
+          <View minPresenceAhead={40}>
+            <Text style={S.sectionLabel}>Crop Calendar</Text>
+            <Text style={S.sectionTitle}>Seasonal Action Plan</Text>
+          </View>
 
           {/* Table header */}
           <View style={S.calTableHeader}>

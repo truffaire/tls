@@ -3,10 +3,32 @@
 @tailwind utilities;
 
 :root {
-  --dark:      #0C1618;
-  --teal:      #004643;
-  --teal-mid:  #005c58;
-  --teal-pale: #e8f0ef;
+  --dark:        #0C1618;
+  --teal:        #004643;
+  --teal-mid:    #005c58;
+  --teal-pale:   #e8f0ef;
+  --page-padding: 20px;
+  --max-width:   1200px;
+}
+
+/* Mobile — 375px to 767px */
+@media (min-width: 375px) {
+  :root { --page-padding: 20px; }
+}
+
+/* Tablet — 768px to 1023px */
+@media (min-width: 768px) {
+  :root { --page-padding: 40px; }
+}
+
+/* Laptop — 1024px to 1439px */
+@media (min-width: 1024px) {
+  :root { --page-padding: 60px; }
+}
+
+/* Desktop — 1440px+ */
+@media (min-width: 1440px) {
+  :root { --page-padding: 80px; }
 }
 
 * { box-sizing: border-box; }

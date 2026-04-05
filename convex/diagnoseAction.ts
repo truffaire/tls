@@ -105,6 +105,20 @@ function normalizeSeasonalCalendar(value: unknown) {
       ];
 }
 
+function normalizeEconomicImpact(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return {
+      yieldLossPercent: "varies",
+      description: "Act promptly to minimise yield loss.",
+    };
+  }
+  const e = value as Record<string, unknown>;
+  return {
+    yieldLossPercent: asString(e.yieldLossPercent, "varies"),
+    description: asString(e.description, "Act promptly to minimise yield loss."),
+  };
+}
+
 function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
   const diagnosis =
     rawDiagnosis && typeof rawDiagnosis === "object"
@@ -117,13 +131,21 @@ function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
       ? severity
       : "Moderate";
 
+  const confidence = asString(diagnosis.confidence, "Moderate");
+  const safeConfidence =
+    confidence === "High" || confidence === "Moderate" || confidence === "Low"
+      ? confidence
+      : "Moderate";
+
   return {
     primary: asString(diagnosis.primary, "Further agronomic review required"),
     secondary: asOptionalString(diagnosis.secondary),
     contributing: asOptionalString(diagnosis.contributing),
     severity: safeSeverity,
+    confidence: safeConfidence,
     urgency: asString(diagnosis.urgency, "Act within 7 days"),
     scientificName: asString(diagnosis.scientificName, crop),
+    economicImpact: normalizeEconomicImpact(diagnosis.economicImpact),
     observations: asStringArray(diagnosis.observations, [
       "Visible symptoms were present on the submitted leaf sample.",
     ]),
@@ -147,13 +169,17 @@ function fallbackDiagnosis(crop: string, language: string, reason?: string) {
 
   return {
     disease: "Unknown",
-    confidence: 0,
+    confidence: "Low",
     severity: "unknown",
     primary: "Unknown",
     secondary: null,
     contributing: null,
     urgency: "Review and retry with a clearer image",
     scientificName: crop,
+    economicImpact: {
+      yieldLossPercent: "unknown",
+      description: "Unable to assess economic impact without a successful diagnosis.",
+    },
     observations: [
       `The ${crop} sample could not be fully analyzed in ${language}.`,
     ],
@@ -187,12 +213,6 @@ function toStoredDiagnosis(
   return {
     ...normalized,
     disease: "disease" in rawDiagnosis ? rawDiagnosis.disease : normalized.primary,
-    confidence:
-      "confidence" in rawDiagnosis && typeof rawDiagnosis.confidence === "number"
-        ? rawDiagnosis.confidence
-        : normalized.primary === "Unknown"
-          ? 0
-          : 0.78,
     severity:
       "severity" in rawDiagnosis &&
       (rawDiagnosis.severity === "unknown" ||
@@ -211,13 +231,14 @@ export const runDiagnosis = action({
     clerkId: v.string(),
     crop: v.string(),
     language: v.string(),
+    location: v.optional(v.string()),
     imageUrl: v.string(),
     imageB64: v.optional(v.string()),
     imageMimeType: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { clerkId, crop, language, imageUrl, imageB64, imageMimeType }
+    { clerkId, crop, language, location, imageUrl, imageB64, imageMimeType }
   ): Promise<{ reportId: string; diagnosis: unknown }> => {
     let creditDeducted = false;
     let reportId = generateReportId();
@@ -238,6 +259,39 @@ export const runDiagnosis = action({
       await ctx.runMutation(api.users.deductCredit, { clerkId });
       creditDeducted = true;
 
+      // ── Optional: fetch weather for farm location ──────────────
+      type WeatherData = { temp: number; humidity: number; description: string; rainfall: number };
+      let weatherData: WeatherData | null = null;
+      if (location) {
+        try {
+          const weatherKey = process.env.OPENWEATHER_API_KEY;
+          if (weatherKey) {
+            const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)},IN&appid=${weatherKey}&units=metric`;
+            const weatherRes = await fetch(weatherUrl);
+            if (weatherRes.ok) {
+              const wd = await weatherRes.json();
+              weatherData = {
+                temp:        wd.main?.temp        ?? 0,
+                humidity:    wd.main?.humidity    ?? 0,
+                description: wd.weather?.[0]?.description ?? "unknown",
+                rainfall:    wd.rain?.["1h"]      ?? 0,
+              };
+              console.log("Weather fetched:", weatherData);
+            }
+          }
+        } catch (weatherErr) {
+          console.error("Weather fetch failed (non-blocking):", weatherErr);
+        }
+      }
+
+      const locationContext = location
+        ? `\nFarm location: ${location}, India. Consider soil types, climate patterns, and crop diseases common to this region in your diagnosis.`
+        : "";
+
+      const weatherContext = weatherData
+        ? `\nCurrent weather at farm location:\nTemperature: ${weatherData.temp}°C\nHumidity: ${weatherData.humidity}%\nConditions: ${weatherData.description}\nRecent rainfall: ${weatherData.rainfall}mm\nFactor these environmental conditions into your diagnosis and treatment urgency.`
+        : "";
+
       const systemPrompt = `You are the Truffaire Labs Diagnostic Engine — the world's most advanced agricultural leaf diagnosis system. You have the knowledge of the greatest agricultural scientists in history combined.
 
 Your task: Analyse the uploaded leaf photograph and generate a complete, precise, scientifically rigorous diagnosis report.
@@ -250,6 +304,7 @@ STRICT RULES:
 - Base diagnosis on visible symptoms only — be precise
 - If multiple conditions exist, list primary, secondary, and contributing factors
 - Severity must be one of: Mild, Moderate, Severe
+- Confidence must be one of: High, Moderate, Low${locationContext}${weatherContext}
 
 Respond ONLY in valid JSON matching this exact structure:
 {
@@ -257,8 +312,13 @@ Respond ONLY in valid JSON matching this exact structure:
   "secondary": "condition name or null",
   "contributing": "factor or null",
   "severity": "Mild|Moderate|Severe",
+  "confidence": "High|Moderate|Low",
   "urgency": "specific timeframe e.g. Act within 7 days",
   "scientificName": "Latin name of crop",
+  "economicImpact": {
+    "yieldLossPercent": "30-40",
+    "description": "One sentence on financial risk if this condition is left untreated"
+  },
   "observations": ["observation 1", "observation 2", "observation 3"],
   "causes": ["cause 1", "cause 2", "cause 3"],
   "treatment": [
@@ -308,7 +368,8 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         ],
       };
 
-      let diagnosis = toStoredDiagnosis(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let diagnosis: any = toStoredDiagnosis(
         fallbackDiagnosis(crop, language, "analysis unavailable"),
         crop,
       );
@@ -342,7 +403,8 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
           const data = JSON.parse(responseText);
           const raw = data.content?.[0]?.text ?? "";
           const clean = raw.replace(/```json|```/g, "").trim();
-          diagnosis = toStoredDiagnosis(normalizeDiagnosis(JSON.parse(clean), crop), crop);
+          const base = toStoredDiagnosis(normalizeDiagnosis(JSON.parse(clean), crop), crop);
+          diagnosis = weatherData ? { ...base, weatherData } : base;
         } finally {
           clearTimeout(timeout);
         }
@@ -350,7 +412,8 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         console.error("Diagnosis error:", error);
         const reason =
           error instanceof Error ? error.message : "Unknown diagnosis failure";
-        diagnosis = toStoredDiagnosis(fallbackDiagnosis(crop, language, reason), crop);
+        const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, language, reason), crop);
+        diagnosis = weatherData ? { ...fbBase, weatherData } : fbBase;
       }
 
       await ctx.runMutation(internal.diagnose.saveReport, {
@@ -358,6 +421,7 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         userId: clerkId,
         crop,
         language,
+        ...(location ? { location } : {}),
         imageUrl,
         diagnosis,
       });

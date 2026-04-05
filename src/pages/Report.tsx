@@ -63,6 +63,10 @@ export default function Report() {
     ? diagnosis.seasonalCalendar
     : [];
 
+  const weatherDisplay = diagnosis.weatherData && typeof diagnosis.weatherData === "object"
+    ? (diagnosis.weatherData as any)
+    : null;
+
   const date = report?.createdAt
     ? new Date(report.createdAt).toLocaleDateString("en-IN", {
         day: "numeric",
@@ -190,9 +194,10 @@ export default function Report() {
 
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
               {[
-                { k: "Crop", v: report.crop || "—" },
+                { k: "Crop",     v: report.crop     || "—" },
                 { k: "Language", v: report.language || "—" },
-                { k: "Date", v: date },
+                ...((report as any).location ? [{ k: "Location", v: (report as any).location as string }] : []),
+                { k: "Date",     v: date },
               ].map((row) => (
                 <div key={row.k} style={{ display: "flex", justifyContent: "space-between" }}>
                   <span
@@ -225,11 +230,32 @@ export default function Report() {
               v={<SeverityPill s={String(report?.diagnosis?.severity || "Unknown")} />}
             />
             <ReportRow
+              k="Confidence"
+              v={<ConfidencePill c={String(report?.diagnosis?.confidence || "Moderate")} />}
+            />
+            <ReportRow
               k="Urgency"
               v={<UrgencyPill u={String(report?.diagnosis?.urgency || "Not available")} />}
               last
             />
           </Section>
+
+          {/* ── ECONOMIC RISK ── */}
+          {diagnosis.economicImpact && typeof diagnosis.economicImpact === "object" && (
+            <div style={{
+              background: "#FEF3C7", borderLeft: "3px solid #92400E",
+              borderRadius: "0 10px 10px 0", padding: "14px 16px", marginBottom: 10,
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+                Economic Risk
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 300, color: "#0C1618", lineHeight: 1.65, margin: 0 }}>
+                Left untreated, this condition can reduce yield by{" "}
+                <strong style={{ fontWeight: 600 }}>{String((diagnosis.economicImpact as any).yieldLossPercent ?? "varies")}%</strong>.{" "}
+                {String((diagnosis.economicImpact as any).description ?? "Act promptly to protect your harvest.")}
+              </p>
+            </div>
+          )}
 
           <Section title="Leaf Observations">
             {observations.length > 0 ? (
@@ -349,6 +375,20 @@ export default function Report() {
                     {String(entry?.action ?? "Not available")}
                   </span>
                 </div>
+              ))}
+            </Section>
+          )}
+
+          {/* ── WEATHER ── */}
+          {weatherDisplay && (
+            <Section title="Environmental Conditions">
+              {[
+                { k: "Temperature",    v: `${weatherDisplay.temp}°C` },
+                { k: "Humidity",       v: `${weatherDisplay.humidity}%` },
+                { k: "Conditions",     v: String(weatherDisplay.description) },
+                { k: "Rainfall (1h)",  v: `${weatherDisplay.rainfall}mm` },
+              ].map((row, i, arr) => (
+                <ReportRow key={row.k} k={row.k} v={row.v} last={i === arr.length - 1} />
               ))}
             </Section>
           )}
@@ -481,6 +521,20 @@ function BulletItem({ text, last }: { text: string; last?: boolean }) {
         {text}
       </span>
     </div>
+  );
+}
+
+function ConfidencePill({ c }: { c: string }) {
+  const styles: Record<string, { background: string; color: string }> = {
+    High:     { background: "#D1FAE5", color: "#065F46" },
+    Moderate: { background: "#FEF3C7", color: "#92400E" },
+    Low:      { background: "#FEE2E2", color: "#991B1B" },
+  };
+  const s = styles[c] ?? styles["Moderate"];
+  return (
+    <span style={{ ...s, fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 100 }}>
+      {c}
+    </span>
   );
 }
 

@@ -43,3 +43,9 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Claude Code local settings (may contain shell history with secrets)
+.claude/
+
+# Vercel project config (contains org/project IDs)
+.vercel/

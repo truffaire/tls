@@ -97,7 +97,7 @@ export default function Landing() {
           maxWidth: 700, margin: 0,
         }}>
           Scan any leaf.<br />
-          <strong style={{ fontWeight: 600 }}>Know everything.</strong><br />
+          <strong style={{ fontWeight: 600 }}>Get answers.</strong><br />
           <span style={{ color: "#004643", fontWeight: 300 }}>In two minutes.</span>
         </h1>
 
@@ -344,10 +344,10 @@ export default function Landing() {
       <section style={{ padding: "80px 28px" }}>
         <div className="fade-up" style={secLbl}>CROP COVERAGE</div>
         <h2 className="fade-up" style={secH2}>
-          Every crop that has<br /><strong style={{ fontWeight: 600 }}>ever grown on this earth.</strong>
+          Across major crops<br /><strong style={{ fontWeight: 600 }}>grown in India.</strong>
         </h2>
         <p className="fade-up" style={secP}>
-          From staple field crops to rare medicinal plants. If it grows — TLS diagnoses it.
+          From pomegranate to cotton, rice to coffee — TLS diagnoses the crops that matter to Indian farmers.
         </p>
         <div className="fade-up" style={{
           display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 32,

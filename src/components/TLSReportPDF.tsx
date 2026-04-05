@@ -498,6 +498,7 @@ type ReportLike = {
   reportId?: string;
   crop?: string;
   language?: string;
+  location?: string;
   createdAt?: number;
   diagnosis?: Record<string, unknown> | null;
 };
@@ -516,6 +517,31 @@ function priorityColors(p: string): { bg: string; text: string } {
   if (v === "immediate") return { bg: C.redBg,   text: C.red   };
   if (v === "short-term" || v === "short term") return { bg: C.amberBg, text: C.amber };
   return { bg: C.tealBg, text: C.teal };
+}
+
+// ── Weather section for page 5 ─────────────────────────────────
+function WeatherSection({ wd }: { wd: { temp?: number; humidity?: number; description?: string; rainfall?: number } | null }) {
+  if (!wd) return null;
+  const rows = [
+    { label: "Temperature",   value: `${wd.temp ?? "—"}°C` },
+    { label: "Humidity",      value: `${wd.humidity ?? "—"}%` },
+    { label: "Conditions",    value: String(wd.description ?? "—") },
+    { label: "Rainfall (1h)", value: `${wd.rainfall ?? 0}mm` },
+  ];
+  return (
+    <>
+      <View style={S.divider} />
+      <View style={S.spacer8} />
+      <Text style={S.sectionLabel}>Environmental Conditions</Text>
+      <Text style={S.sectionTitle}>Weather at Farm Location</Text>
+      {rows.map((row, i) => (
+        <View key={row.label} style={i === rows.length - 1 ? { ...S.diagRow, ...S.diagRowLast } : S.diagRow}>
+          <Text style={S.diagRowKey}>{row.label}</Text>
+          <Text style={S.diagRowVal}>{row.value}</Text>
+        </View>
+      ))}
+    </>
+  );
 }
 
 // ── Shared: page header band ────────────────────────────────────
@@ -567,12 +593,20 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
   const reportId = report?.reportId ?? "TLS-UNKNOWN";
   const crop     = String(report?.crop     ?? "Unknown Crop");
   const language = String(report?.language ?? "English");
+  const location = report?.location ? String(report.location) : null;
   const primary  = String(diagnosis.primary     ?? "Not available");
   const secondary   = diagnosis.secondary   ? String(diagnosis.secondary)   : null;
   const contributing = diagnosis.contributing ? String(diagnosis.contributing) : null;
-  const severity = String(diagnosis.severity  ?? "Moderate");
-  const urgency  = String(diagnosis.urgency   ?? "Act within 7 days");
-  const sciName  = String(diagnosis.scientificName ?? crop);
+  const severity   = String(diagnosis.severity   ?? "Moderate");
+  const confidence = String(diagnosis.confidence ?? "Moderate");
+  const urgency    = String(diagnosis.urgency    ?? "Act within 7 days");
+  const sciName    = String(diagnosis.scientificName ?? crop);
+  const econImpact = diagnosis.economicImpact && typeof diagnosis.economicImpact === "object"
+    ? diagnosis.economicImpact as { yieldLossPercent?: string; description?: string }
+    : null;
+  const weatherData = diagnosis.weatherData && typeof diagnosis.weatherData === "object"
+    ? diagnosis.weatherData as { temp?: number; humidity?: number; description?: string; rainfall?: number }
+    : null;
 
   const date = report?.createdAt
     ? new Date(report.createdAt).toLocaleDateString("en-IN", {
@@ -609,6 +643,12 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             <Text style={S.coverMetaLabel}>LANGUAGE</Text>
             <Text style={S.coverMetaValue}>{language}</Text>
           </View>
+          {location && (
+            <View style={S.coverMetaRow}>
+              <Text style={S.coverMetaLabel}>LOCATION</Text>
+              <Text style={S.coverMetaValue}>{location}</Text>
+            </View>
+          )}
           <View style={S.coverMetaRow}>
             <Text style={S.coverMetaLabel}>DIAGNOSIS</Text>
             <Text style={S.coverMetaValue}>{primary}</Text>
@@ -644,7 +684,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             <Text style={S.diagPrimaryText}>{primary}</Text>
           </View>
 
-          {/* Severity / Urgency grid */}
+          {/* Severity / Urgency / Crop / Confidence grid */}
           <View style={S.diagGrid}>
             <View style={{ ...S.diagGridCell }}>
               <Text style={S.diagGridLabel}>SEVERITY</Text>
@@ -656,11 +696,25 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
               <Text style={S.diagGridLabel}>URGENCY</Text>
               <Text style={S.diagGridValue}>{urgency}</Text>
             </View>
-            <View style={{ ...S.diagGridCell, ...S.diagGridCellLast }}>
+            <View style={{ ...S.diagGridCell }}>
               <Text style={S.diagGridLabel}>CROP</Text>
               <Text style={S.diagGridValue}>{crop}</Text>
             </View>
+            <View style={{ ...S.diagGridCell, ...S.diagGridCellLast }}>
+              <Text style={S.diagGridLabel}>CONFIDENCE</Text>
+              <Text style={S.diagGridValue}>{confidence}</Text>
+            </View>
           </View>
+
+          {/* Economic Impact */}
+          {econImpact && (
+            <View style={{ backgroundColor: C.amberBg, borderLeftWidth: 3, borderLeftColor: C.amber, padding: 12, marginBottom: 16 }}>
+              <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.amber, letterSpacing: 1.2, marginBottom: 5 }}>ECONOMIC RISK</Text>
+              <Text style={{ fontSize: 9, color: C.dark, lineHeight: 1.5 }}>
+                Left untreated, this condition can reduce yield by {econImpact.yieldLossPercent ?? "varies"}%. {econImpact.description ?? ""}
+              </Text>
+            </View>
+          )}
 
           {/* Remaining fields */}
           <View>
@@ -688,6 +742,12 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
               <Text style={S.diagRowKey}>Report Date</Text>
               <Text style={S.diagRowVal}>{date}</Text>
             </View>
+            {location && (
+              <View style={S.diagRow}>
+                <Text style={S.diagRowKey}>Farm Location</Text>
+                <Text style={S.diagRowVal}>{location}</Text>
+              </View>
+            )}
             <View style={{ ...S.diagRow, ...S.diagRowLast }}>
               <Text style={S.diagRowKey}>Report ID</Text>
               <Text style={S.diagRowVal}>{reportId}</Text>
@@ -700,8 +760,8 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
           <View style={{ backgroundColor: C.tealBg, padding: 12 }}>
             <Text style={{ fontSize: 8, color: C.teal, lineHeight: 1.6 }}>
               This diagnosis is based on visual leaf analysis using the Truffaire Labs
-              Diagnostic Engine. Results reflect the most probable agronomic condition
-              given the submitted photographic evidence. Confirm with field scouting.
+              Diagnostic Engine. Results reflect the Primary Diagnosis derived from
+              the submitted photographic evidence. Confirm with field scouting.
             </Text>
           </View>
         </View>
@@ -818,6 +878,8 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
               ))
             : <Text style={{ fontSize: 9, color: C.muted }}>No prevention measures recorded.</Text>
           }
+
+          <WeatherSection wd={weatherData} />
 
           <View style={S.divider} />
           <View style={S.spacer8} />

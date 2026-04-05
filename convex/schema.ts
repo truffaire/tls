@@ -13,12 +13,13 @@ export default defineSchema({
 
   // ── REPORTS ────────────────────────────────────────────────
   reports: defineTable({
-    reportId:  v.string(),   // TLS-2026-KA-XXXXXX
-    userId:    v.string(),   // clerkId
+    reportId:  v.string(),              // TLS-2026-KA-XXXXXX
+    userId:    v.string(),              // clerkId
     crop:      v.string(),
     language:  v.string(),
+    location:  v.optional(v.string()), // farm location e.g. "Chitradurga, Karnataka"
     imageUrl:  v.string(),
-    diagnosis: v.any(),      // DiagnosisResult JSON
+    diagnosis: v.any(),                // DiagnosisResult JSON
     createdAt: v.number(),
   })
     .index("by_user",     ["userId"])

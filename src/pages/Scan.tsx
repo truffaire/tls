@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import { FEATURED_CROPS } from "@/lib/constants";
 import { useTLSUser } from "@/lib/auth";
 
-type Step = "upload" | "crop" | "confirm" | "processing";
+type Step = "upload" | "crop" | "location" | "confirm" | "processing";
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const DATA_URL_PREFIX = "data:";
@@ -23,6 +23,7 @@ export default function Scan() {
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
   const [crop, setCrop]           = useState("");
   const [cropSearch, setCropSearch] = useState("");
+  const [location, setLocation]     = useState("");
   const language = "English";
   const [error, setError]         = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +88,7 @@ export default function Scan() {
         clerkId:  user.id,
         crop,
         language,
+        location: location.trim() || undefined,
         imageUrl: image ?? "",
         imageB64,
         imageMimeType: imageMimeType ?? undefined,
@@ -122,7 +124,8 @@ export default function Scan() {
               onClick={() => {
                 if (step === "upload") navigate("/dashboard");
                 else if (step === "crop") setStep("upload");
-                else if (step === "confirm") setStep("crop");
+                else if (step === "location") setStep("crop");
+                else if (step === "confirm") setStep("location");
               }}
               style={{ background: "none", border: "none", cursor: "pointer", color: "#AAAAAA", fontFamily: "'DM Sans', sans-serif", fontSize: 13, marginBottom: 16, padding: 0, display: "flex", alignItems: "center", gap: 6 }}
             >
@@ -190,7 +193,7 @@ export default function Scan() {
             {/* Custom crop entry */}
             {cropSearch && !FEATURED_CROPS.find(c => c.toLowerCase() === cropSearch.toLowerCase()) && (
               <button
-                onClick={() => { setCrop(cropSearch); setStep("confirm"); }}
+                onClick={() => { setCrop(cropSearch); setStep("location"); }}
                 style={customCropBtn}
               >
                 Use "{cropSearch}"
@@ -202,7 +205,7 @@ export default function Scan() {
               {filteredCrops.map((c) => (
                 <div
                   key={c}
-                  onClick={() => { setCrop(c); setStep("confirm"); }}
+                  onClick={() => { setCrop(c); setStep("location"); }}
                   style={{
                     border: `1.5px solid ${crop === c ? "#004643" : "#E8E8E8"}`,
                     background: crop === c ? "#e8f0ef" : "white",
@@ -216,6 +219,52 @@ export default function Scan() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── STEP: LOCATION ── */}
+        {step === "location" && (
+          <div>
+            <h2 style={sh2}>Where is your<br /><strong>farm?</strong></h2>
+            <p style={sp}>Helps improve diagnosis accuracy for your region.</p>
+
+            <input
+              type="text"
+              placeholder="Enter your district or city — e.g. Chitradurga, Solapur, Nashik"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+              style={{ ...searchStyle, marginTop: 24 }}
+              autoFocus
+            />
+
+            <button
+              onClick={() => setStep("confirm")}
+              disabled={!location.trim()}
+              style={{
+                width: "100%", marginTop: 16, padding: 16, borderRadius: 14,
+                background: location.trim() ? "#004643" : "#E8E8E8",
+                color: location.trim() ? "white" : "#AAAAAA",
+                border: "none", fontFamily: "'DM Sans', sans-serif",
+                fontSize: 15, fontWeight: 500,
+                cursor: location.trim() ? "pointer" : "not-allowed",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Continue
+            </button>
+
+            <button
+              onClick={() => { setLocation(""); setStep("confirm"); }}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "#AAAAAA", fontFamily: "'DM Sans', sans-serif",
+                fontSize: 13, textDecoration: "underline",
+                marginTop: 12, width: "100%", textAlign: "center", padding: 8,
+                display: "block",
+              }}
+            >
+              Skip for now
+            </button>
           </div>
         )}
 
@@ -234,9 +283,10 @@ export default function Scan() {
             {/* Summary */}
             <div style={{ background: "#FAFAFA", borderRadius: 16, padding: "18px 16px", marginTop: 16 }}>
               {[
-                { k: "Crop",    v: crop },
-                { k: "Cost",    v: "1 credit" },
-                { k: "Balance", v: `${credits ?? 0} credits` },
+                { k: "Crop",     v: crop },
+                ...(location ? [{ k: "Location", v: location }] : []),
+                { k: "Cost",     v: "1 credit" },
+                { k: "Balance",  v: `${credits ?? 0} credits` },
               ].map((row, i, arr) => (
                 <div key={row.k} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < arr.length - 1 ? "1px solid #E8E8E8" : "none" }}>
                   <span style={{ fontSize: 12, color: "#AAAAAA", textTransform: "uppercase", letterSpacing: "0.06em" }}>{row.k}</span>
@@ -303,8 +353,8 @@ export default function Scan() {
 
 // ── Step indicator ─────────────────────────────────────────────
 function StepIndicator({ current }: { current: Step }) {
-  const steps: Step[] = ["upload", "crop", "confirm"];
-  const labels = ["Photo", "Crop", "Confirm"];
+  const steps: Step[] = ["upload", "crop", "location", "confirm"];
+  const labels = ["Photo", "Crop", "Location", "Confirm"];
   const idx    = steps.indexOf(current);
 
   return (

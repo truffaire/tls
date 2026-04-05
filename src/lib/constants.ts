@@ -3,9 +3,9 @@ export const CREDIT_PACKS = [
   {
     id:       "starter",
     name:     "Starter",
-    price:    199,
+    price:    209,
     credits:  3,
-    perReport: 66,
+    perReport: 69,
     popular:  false,
     features: [
       "3 full diagnosis reports",
@@ -16,9 +16,9 @@ export const CREDIT_PACKS = [
   {
     id:       "farm",
     name:     "Farm Pack",
-    price:    599,
+    price:    629,
     credits:  10,
-    perReport: 59,
+    perReport: 62,
     popular:  true,
     features: [
       "10 full diagnosis reports",
@@ -30,9 +30,9 @@ export const CREDIT_PACKS = [
   {
     id:       "agro",
     name:     "Agro Pack",
-    price:    1299,
+    price:    1349,
     credits:  30,
-    perReport: 43,
+    perReport: 44,
     popular:  false,
     features: [
       "30 full diagnosis reports",

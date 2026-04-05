@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 // ── Palette ────────────────────────────────────────────────────
 const C = {
@@ -526,6 +526,7 @@ type ReportLike = {
   crop?: string;
   location?: string;
   soilType?: string;
+  imageUrl?: string;
   createdAt?: number;
   diagnosis?: Record<string, unknown> | null;
 };
@@ -673,6 +674,15 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
 
         <Text style={S.coverCrop}>{crop}</Text>
         <Text style={S.coverSubtitle}>TLS Leaf Diagnosis Report</Text>
+
+        {report?.imageUrl && report.imageUrl.startsWith("data:image/") && (
+          <View style={{ paddingHorizontal: 48, marginBottom: 28, flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
+            <Image src={report.imageUrl} style={{ width: 88, height: 88 }} />
+            <Text style={{ fontSize: 7, color: "rgba(255,255,255,0.28)", paddingBottom: 4 }}>
+              Submitted leaf sample
+            </Text>
+          </View>
+        )}
 
         <View style={S.coverMetaBlock}>
           <View style={S.coverMetaRow}>

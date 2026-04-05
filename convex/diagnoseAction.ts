@@ -36,6 +36,12 @@ function asOptionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function asConfidenceInt(value: unknown, fallback: number): number {
+  if (typeof value === "number" && value >= 0 && value <= 100) return Math.round(value);
+  if (typeof value === "string") { const n = parseInt(value, 10); if (!isNaN(n) && n >= 0 && n <= 100) return n; }
+  return fallback;
+}
+
 function asStringArray(value: unknown, fallback: string[]): string[] {
   if (!Array.isArray(value)) return fallback;
   const items = value
@@ -162,6 +168,18 @@ function safeLeafSeverity(value: unknown): LeafSeverity {
   return (LEAF_SEVERITIES as readonly string[]).includes(s) ? (s as LeafSeverity) : "none";
 }
 
+function normalizeTreatmentCost(value: unknown): { perAcre: string; currency: string; basis: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const t = value as Record<string, unknown>;
+  const perAcre = asOptionalString(t.perAcre);
+  if (!perAcre) return null;
+  return {
+    perAcre,
+    currency: asString(t.currency, "INR"),
+    basis:    asString(t.basis,    "per acre"),
+  };
+}
+
 function normalizeLeafAnnotation(value: unknown) {
   if (!value || typeof value !== "object") {
     return {
@@ -208,6 +226,10 @@ function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
     labTests:        asStringArray(diagnosis.labTests,   ["Leaf tissue analysis", "Soil nutrient analysis"]),
     seasonalCalendar: normalizeSeasonalCalendar(diagnosis.seasonalCalendar),
     leafAnnotation:   normalizeLeafAnnotation(diagnosis.leafAnnotation),
+    treatmentCost:    normalizeTreatmentCost(diagnosis.treatmentCost),
+    primaryConfidence:      asConfidenceInt(diagnosis.primaryConfidence,      75),
+    secondaryConfidence:    asConfidenceInt(diagnosis.secondaryConfidence,    18),
+    contributingConfidence: asConfidenceInt(diagnosis.contributingConfidence,  7),
   };
 }
 
@@ -226,6 +248,10 @@ function fallbackDiagnosis(crop: string, reason?: string) {
     labTests:        ["Consult a local agronomist or lab for confirmation."],
     seasonalCalendar: [{ period: "Now", action: "Retake the scan with a clearer image before making treatment decisions." }],
     leafAnnotation:   { tip: "none", margins: "none", upperSurface: "none", lowerSurface: "none", midrib: "none", base: "none", description: "Unable to determine symptom location." },
+    treatmentCost:    null,
+    primaryConfidence:      75,
+    secondaryConfidence:    18,
+    contributingConfidence:  7,
   };
 }
 
@@ -332,7 +358,9 @@ STRICT RULES:
 - Speak with scientific authority — no hedging
 - Base diagnosis on visible symptoms only
 - Severity must be exactly one of: Mild, Moderate, Severe
-- Confidence must be exactly one of: High, Moderate, Low${locationContext}${weatherContext}${soilContext}${imageCountNote}
+- Confidence must be exactly one of: High, Moderate, Low
+- primaryConfidence + secondaryConfidence + contributingConfidence must sum to exactly 100 (integers)
+- treatmentCost.perAcre must be a realistic INR range for the specific treatment (e.g. "600-900")${locationContext}${weatherContext}${soilContext}${imageCountNote}
 
 Respond ONLY in valid JSON matching this exact structure:
 {
@@ -341,11 +369,19 @@ Respond ONLY in valid JSON matching this exact structure:
   "contributing": "factor or null",
   "severity": "Mild|Moderate|Severe",
   "confidence": "High|Moderate|Low",
+  "primaryConfidence": 75,
+  "secondaryConfidence": 18,
+  "contributingConfidence": 7,
   "urgency": "specific timeframe e.g. Act within 7 days",
   "scientificName": "Latin name of crop",
   "economicImpact": {
     "yieldLossPercent": "30-40",
     "description": "One sentence on financial risk if untreated"
+  },
+  "treatmentCost": {
+    "perAcre": "800-1200",
+    "currency": "INR",
+    "basis": "one-time application"
   },
   "observations": ["observation 1", "observation 2", "observation 3"],
   "causes": ["cause 1", "cause 2", "cause 3"],
@@ -387,7 +423,7 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
       try {
         const diagRaw = await callClaude(apiKey, {
           model: "claude-sonnet-4-20250514",
-          max_tokens: 1200,
+          max_tokens: 1500,
           system: diagnosisSystemPrompt,
           messages: [{ role: "user", content: [...imageBlocks, textBlock] }],
         }, 45000);

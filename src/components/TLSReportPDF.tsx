@@ -1,27 +1,4 @@
-import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-
-// ── Font registration ───────────────────────────────────────────
-Font.register({
-  family: "NotoSans",
-  fonts: [
-    { src: "/fonts/NotoSans-Regular.ttf" },
-    { src: "/fonts/NotoSans-Bold.ttf", fontWeight: "bold" },
-  ],
-});
-Font.register({ family: "NotoSansKannada",    src: "/fonts/NotoSansKannada-Regular.ttf" });
-Font.register({ family: "NotoSansDevanagari", src: "/fonts/NotoSansDevanagari-Regular.ttf" });
-Font.register({ family: "NotoSansTamil",      src: "/fonts/NotoSansTamil-Regular.ttf" });
-Font.register({ family: "NotoSansTelugu",     src: "/fonts/NotoSansTelugu-Regular.ttf" });
-
-function getFontFamily(language: string): string {
-  const lang = language.toLowerCase();
-  if (lang === "kannada")  return "NotoSansKannada";
-  if (lang === "hindi")    return "NotoSansDevanagari";
-  if (lang === "marathi")  return "NotoSansDevanagari";
-  if (lang === "tamil")    return "NotoSansTamil";
-  if (lang === "telugu")   return "NotoSansTelugu";
-  return "NotoSans";
-}
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 // ── Palette ────────────────────────────────────────────────────
 const C = {
@@ -46,7 +23,7 @@ const S = StyleSheet.create({
     backgroundColor: C.dark,
     paddingHorizontal: 0,
     paddingVertical: 0,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica",
     position: "relative",
   },
   page: {
@@ -54,7 +31,7 @@ const S = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 44,
     paddingHorizontal: 0,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica",
   },
 
   // ── Page header band ──
@@ -70,7 +47,7 @@ const S = StyleSheet.create({
   pageHeaderBrandText: {
     color: C.white,
     fontSize: 10,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     letterSpacing: 1.5,
   },
   pageHeaderMeta: {
@@ -105,7 +82,7 @@ const S = StyleSheet.create({
   // ── Section heading ──
   sectionLabel: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.teal,
     letterSpacing: 1.8,
     textTransform: "uppercase",
@@ -113,7 +90,7 @@ const S = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.dark,
     marginBottom: 18,
   },
@@ -133,7 +110,7 @@ const S = StyleSheet.create({
   },
   coverBrand: {
     fontSize: 10,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: "rgba(255,255,255,0.4)",
     letterSpacing: 3,
     marginBottom: 8,
@@ -145,7 +122,7 @@ const S = StyleSheet.create({
   },
   coverCrop: {
     fontSize: 44,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.white,
     lineHeight: 1.1,
     marginBottom: 10,
@@ -154,7 +131,7 @@ const S = StyleSheet.create({
   coverSubtitle: {
     fontSize: 13,
     color: "rgba(255,255,255,0.45)",
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     paddingHorizontal: 48,
     marginBottom: 52,
   },
@@ -172,7 +149,7 @@ const S = StyleSheet.create({
     color: "rgba(255,255,255,0.35)",
     letterSpacing: 1.4,
     width: 90,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
   },
   coverMetaValue: {
     fontSize: 9,
@@ -183,7 +160,7 @@ const S = StyleSheet.create({
     marginBottom: 16,
   },
   coverReportIdText: {
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     fontSize: 9,
     color: "rgba(255,255,255,0.25)",
     letterSpacing: 0.5,
@@ -224,7 +201,7 @@ const S = StyleSheet.create({
   },
   badgeText: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     letterSpacing: 0.5,
   },
 
@@ -239,7 +216,7 @@ const S = StyleSheet.create({
   diagPrimaryLabel: {
     fontSize: 8,
     color: C.muted,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     letterSpacing: 1.2,
     marginBottom: 5,
   },
@@ -265,7 +242,7 @@ const S = StyleSheet.create({
   diagGridLabel: {
     fontSize: 7.5,
     color: C.muted,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     letterSpacing: 1,
     marginBottom: 5,
   },
@@ -290,7 +267,7 @@ const S = StyleSheet.create({
     fontSize: 8.5,
     color: C.muted,
     width: "38%",
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     letterSpacing: 0.3,
   },
   diagRowVal: {
@@ -305,7 +282,7 @@ const S = StyleSheet.create({
     color: C.dark,
     width: "62%",
     textAlign: "right",
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Oblique",
     lineHeight: 1.4,
   },
 
@@ -329,7 +306,7 @@ const S = StyleSheet.create({
   numberedBadgeText: {
     fontSize: 8,
     color: C.white,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
   },
   numberedText: {
     flex: 1,
@@ -387,7 +364,7 @@ const S = StyleSheet.create({
   },
   treatFieldLabel: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.teal,
     width: 60,
     letterSpacing: 0.3,
@@ -409,7 +386,7 @@ const S = StyleSheet.create({
   },
   calHeaderCell: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.white,
     letterSpacing: 1,
   },
@@ -446,7 +423,7 @@ const S = StyleSheet.create({
   },
   companyName: {
     fontSize: 11,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.white,
     marginBottom: 6,
   },
@@ -466,7 +443,7 @@ const S = StyleSheet.create({
   },
   disclaimerTitle: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.dark,
     letterSpacing: 0.8,
     marginBottom: 6,
@@ -490,7 +467,7 @@ const S = StyleSheet.create({
   },
   verifyTitle: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: C.teal,
     letterSpacing: 0.8,
     marginBottom: 5,
@@ -510,7 +487,7 @@ const S = StyleSheet.create({
   // ── Leaf annotation table ──
   annotHeader: {
     fontSize: 8,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: "#FFFFFF",
     letterSpacing: 1,
   },
@@ -528,7 +505,7 @@ const S = StyleSheet.create({
   },
   annotCellSev: {
     fontSize: 9,
-    fontFamily: "NotoSans",
+    fontFamily: "Helvetica-Bold",
     color: "#0C1618",
     width: "25%",
     textTransform: "capitalize" as const,
@@ -786,7 +763,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
           {/* Economic Impact */}
           {econImpact && (
             <View style={{ backgroundColor: C.amberBg, borderLeftWidth: 3, borderLeftColor: C.amber, padding: 12, marginBottom: 16 }}>
-              <Text style={{ fontSize: 8, fontFamily: "NotoSans", color: C.amber, letterSpacing: 1.2, marginBottom: 5 }}>ECONOMIC RISK</Text>
+              <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.amber, letterSpacing: 1.2, marginBottom: 5 }}>ECONOMIC RISK</Text>
               <Text style={{ fontSize: 9, color: C.dark, lineHeight: 1.5 }}>
                 Left untreated, this condition can reduce yield by {econImpact.yieldLossPercent ?? "varies"}%. {econImpact.description ?? ""}
               </Text>

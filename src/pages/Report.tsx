@@ -67,6 +67,10 @@ export default function Report() {
     ? (diagnosis.weatherData as any)
     : null;
 
+  const leafAnnotation = diagnosis.leafAnnotation && typeof diagnosis.leafAnnotation === "object"
+    ? (diagnosis.leafAnnotation as Record<string, string>)
+    : null;
+
   const date = report?.createdAt
     ? new Date(report.createdAt).toLocaleDateString("en-IN", {
         day: "numeric",
@@ -197,6 +201,7 @@ export default function Report() {
                 { k: "Crop",     v: report.crop     || "—" },
                 { k: "Language", v: report.language || "—" },
                 ...((report as any).location ? [{ k: "Location", v: (report as any).location as string }] : []),
+                ...((report as any).soilType ? [{ k: "Soil Type", v: (report as any).soilType as string }] : []),
                 { k: "Date",     v: date },
               ].map((row) => (
                 <div key={row.k} style={{ display: "flex", justifyContent: "space-between" }}>
@@ -255,6 +260,11 @@ export default function Report() {
                 {String((diagnosis.economicImpact as any).description ?? "Act promptly to protect your harvest.")}
               </p>
             </div>
+          )}
+
+          {/* ── LEAF ANNOTATION DIAGRAM ── */}
+          {leafAnnotation && (
+            <LeafAnnotationDiagram annotation={leafAnnotation} />
           )}
 
           <Section title="Leaf Observations">
@@ -436,6 +446,120 @@ export default function Report() {
     console.error("REPORT CRASH:", e);
     return <div style={invalidScreenStyle}>Report failed to render</div>;
   }
+}
+
+// ── Leaf Annotation Diagram ───────────────────────────────────
+function LeafAnnotationDiagram({ annotation }: { annotation: Record<string, string> }) {
+  const sevColor = (s: string) => {
+    if (s === "severe")   return "#FEE2E2";
+    if (s === "moderate") return "#FED7AA";
+    if (s === "mild")     return "#FFF3CD";
+    return "#1E2E2C"; // dark teal-grey for "none" on dark background
+  };
+  const sevTextColor = (s: string) => {
+    if (s === "severe")   return "#FCA5A5";
+    if (s === "moderate") return "#FCD34D";
+    if (s === "mild")     return "#FDE68A";
+    return "#444";
+  };
+  const leafPath = "M 100 12 C 138 30 160 78 162 138 C 160 208 138 266 100 305 C 62 266 40 208 38 138 C 40 78 62 30 100 12 Z";
+  const midribColor = annotation.midrib !== "none"
+    ? (annotation.midrib === "severe" ? "#FCA5A5" : annotation.midrib === "moderate" ? "#FCD34D" : "#FDE68A")
+    : "rgba(255,255,255,0.15)";
+
+  const zones = [
+    { key: "tip",          label: "Leaf Tip" },
+    { key: "margins",      label: "Margins" },
+    { key: "upperSurface", label: "Upper Surface" },
+    { key: "midrib",       label: "Midrib" },
+    { key: "lowerSurface", label: "Lower Surface" },
+    { key: "base",         label: "Base" },
+  ];
+
+  return (
+    <div style={{ background: "#0C1618", borderRadius: 16, padding: "18px 16px", marginBottom: 10, border: "1px solid #004643" }}>
+      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#FFFFFF", marginBottom: 14 }}>
+        Symptom Location Map
+      </div>
+
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        {/* SVG Leaf */}
+        <div style={{ flexShrink: 0 }}>
+          <svg viewBox="0 0 200 318" width="100" height="159">
+            <defs>
+              <clipPath id="leafClipReport">
+                <path d={leafPath} />
+              </clipPath>
+            </defs>
+            {/* Leaf background */}
+            <path d={leafPath} fill="#1A2E2C" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" />
+            {/* Zone overlays */}
+            <g clipPath="url(#leafClipReport)">
+              {/* Tip */}
+              <rect x="0" y="0"   width="200" height="52"  fill={sevColor(annotation.tip)} opacity="0.85" />
+              {/* Left margin */}
+              <rect x="0" y="52"  width="48"  height="205" fill={sevColor(annotation.margins)} opacity="0.85" />
+              {/* Right margin */}
+              <rect x="152" y="52" width="48" height="205" fill={sevColor(annotation.margins)} opacity="0.85" />
+              {/* Upper surface */}
+              <rect x="48" y="52"  width="104" height="90"  fill={sevColor(annotation.upperSurface)} opacity="0.85" />
+              {/* Lower surface */}
+              <rect x="48" y="167" width="104" height="90"  fill={sevColor(annotation.lowerSurface)} opacity="0.85" />
+              {/* Base */}
+              <rect x="0"  y="257" width="200" height="60"  fill={sevColor(annotation.base)} opacity="0.85" />
+            </g>
+            {/* Leaf outline on top */}
+            <path d={leafPath} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
+            {/* Midrib */}
+            <line x1="100" y1="12" x2="100" y2="305"
+              stroke={midribColor}
+              strokeWidth={annotation.midrib !== "none" ? 3 : 1}
+              clipPath="url(#leafClipReport)"
+            />
+          </svg>
+        </div>
+
+        {/* Zone list */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7, paddingTop: 2 }}>
+          {zones.map(({ key, label }) => {
+            const s = annotation[key] || "none";
+            return (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{
+                  width: 9, height: 9, borderRadius: 2, flexShrink: 0,
+                  background: s === "none" ? "rgba(255,255,255,0.08)" : sevColor(s),
+                  border: `1px solid ${s === "none" ? "rgba(255,255,255,0.15)" : sevColor(s)}`,
+                }} />
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", flex: 1 }}>{label}</span>
+                <span style={{ fontSize: 10, fontWeight: s !== "none" ? 600 : 300, color: sevTextColor(s), textTransform: "capitalize" }}>{s}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
+        {[
+          { label: "None",     bg: "rgba(255,255,255,0.08)", border: "rgba(255,255,255,0.15)" },
+          { label: "Mild",     bg: "#FFF3CD",                border: "#FDE68A" },
+          { label: "Moderate", bg: "#FED7AA",                border: "#FCD34D" },
+          { label: "Severe",   bg: "#FEE2E2",                border: "#FCA5A5" },
+        ].map(item => (
+          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: item.bg, border: `1px solid ${item.border}` }} />
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {annotation.description && (
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 12, fontWeight: 300, lineHeight: 1.6, margin: "12px 0 0" }}>
+          {annotation.description}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

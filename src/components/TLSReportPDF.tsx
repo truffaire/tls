@@ -483,6 +483,33 @@ const S = StyleSheet.create({
   spacer16: { height: 16 },
   spacer24: { height: 24 },
   spacer32: { height: 32 },
+
+  // ── Leaf annotation table ──
+  annotHeader: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: "#FFFFFF",
+    letterSpacing: 1,
+  },
+  annotRow: {
+    flexDirection: "row" as const,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8E8",
+  },
+  annotCellZone: {
+    fontSize: 9,
+    color: "#0C1618",
+    width: "35%",
+  },
+  annotCellSev: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: "#0C1618",
+    width: "25%",
+    textTransform: "capitalize" as const,
+  },
 });
 
 // ── Types ──────────────────────────────────────────────────────
@@ -499,6 +526,7 @@ type ReportLike = {
   crop?: string;
   language?: string;
   location?: string;
+  soilType?: string;
   createdAt?: number;
   diagnosis?: Record<string, unknown> | null;
 };
@@ -541,6 +569,20 @@ function WeatherSection({ wd }: { wd: { temp?: number; humidity?: number; descri
         </View>
       ))}
     </>
+  );
+}
+
+// ── Severity bar for leaf annotation table ─────────────────────
+function SeverityBar({ severity }: { severity: string }) {
+  const total = 8;
+  const filled = severity === "severe" ? 8 : severity === "moderate" ? 6 : severity === "mild" ? 4 : 0;
+  const color  = severity === "severe" ? C.red : severity === "moderate" ? C.amber : severity === "mild" ? C.green : C.border;
+  return (
+    <View style={{ flexDirection: "row" }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <View key={i} style={{ width: 7, height: 7, backgroundColor: i < filled ? color : C.border, marginRight: 1 }} />
+      ))}
+    </View>
   );
 }
 
@@ -593,7 +635,8 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
   const reportId = report?.reportId ?? "TLS-UNKNOWN";
   const crop     = String(report?.crop     ?? "Unknown Crop");
   const language = String(report?.language ?? "English");
-  const location = report?.location ? String(report.location) : null;
+  const location = report?.location  ? String(report.location)  : null;
+  const soilType = report?.soilType  ? String(report.soilType)  : null;
   const primary  = String(diagnosis.primary     ?? "Not available");
   const secondary   = diagnosis.secondary   ? String(diagnosis.secondary)   : null;
   const contributing = diagnosis.contributing ? String(diagnosis.contributing) : null;
@@ -606,6 +649,9 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
     : null;
   const weatherData = diagnosis.weatherData && typeof diagnosis.weatherData === "object"
     ? diagnosis.weatherData as { temp?: number; humidity?: number; description?: string; rainfall?: number }
+    : null;
+  const leafAnnotation = diagnosis.leafAnnotation && typeof diagnosis.leafAnnotation === "object"
+    ? diagnosis.leafAnnotation as Record<string, string>
     : null;
 
   const date = report?.createdAt
@@ -647,6 +693,12 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             <View style={S.coverMetaRow}>
               <Text style={S.coverMetaLabel}>LOCATION</Text>
               <Text style={S.coverMetaValue}>{location}</Text>
+            </View>
+          )}
+          {soilType && (
+            <View style={S.coverMetaRow}>
+              <Text style={S.coverMetaLabel}>SOIL TYPE</Text>
+              <Text style={S.coverMetaValue}>{soilType}</Text>
             </View>
           )}
           <View style={S.coverMetaRow}>
@@ -748,6 +800,12 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
                 <Text style={S.diagRowVal}>{location}</Text>
               </View>
             )}
+            {soilType && (
+              <View style={S.diagRow}>
+                <Text style={S.diagRowKey}>Soil Type</Text>
+                <Text style={S.diagRowVal}>{soilType}</Text>
+              </View>
+            )}
             <View style={{ ...S.diagRow, ...S.diagRowLast }}>
               <Text style={S.diagRowKey}>Report ID</Text>
               <Text style={S.diagRowVal}>{reportId}</Text>
@@ -789,6 +847,49 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
               ))
             : <Text style={{ fontSize: 9, color: C.muted }}>No observations recorded.</Text>
           }
+
+          {/* Leaf Annotation Zone Table */}
+          {leafAnnotation && (
+            <>
+              <View style={S.divider} />
+              <View style={S.spacer8} />
+              <Text style={S.sectionLabel}>Symptom Mapping</Text>
+              <Text style={S.sectionTitle}>Symptom Location Map</Text>
+
+              {/* Table header */}
+              <View style={{ flexDirection: "row", backgroundColor: C.dark, paddingHorizontal: 10, paddingVertical: 7 }}>
+                <Text style={{ ...S.annotHeader, width: "35%" }}>ZONE</Text>
+                <Text style={{ ...S.annotHeader, width: "25%" }}>SEVERITY</Text>
+                <Text style={{ ...S.annotHeader, width: "40%" }}>VISUAL</Text>
+              </View>
+
+              {[
+                { key: "tip",          label: "Leaf Tip" },
+                { key: "margins",      label: "Margins" },
+                { key: "upperSurface", label: "Upper Surface" },
+                { key: "lowerSurface", label: "Lower Surface" },
+                { key: "midrib",       label: "Midrib" },
+                { key: "base",         label: "Base" },
+              ].map((zone, i) => {
+                const sev = (leafAnnotation[zone.key] || "none").toLowerCase();
+                return (
+                  <View key={zone.key} style={{ ...S.annotRow, backgroundColor: i % 2 === 0 ? C.white : C.offWhite }}>
+                    <Text style={S.annotCellZone}>{zone.label}</Text>
+                    <Text style={S.annotCellSev}>{sev.charAt(0).toUpperCase() + sev.slice(1)}</Text>
+                    <View style={{ width: "40%", flexDirection: "row", alignItems: "center" }}>
+                      <SeverityBar severity={sev} />
+                    </View>
+                  </View>
+                );
+              })}
+
+              {leafAnnotation.description && (
+                <View style={{ backgroundColor: C.offWhite, padding: 10, marginTop: 8 }}>
+                  <Text style={{ fontSize: 8.5, color: C.muted, lineHeight: 1.5 }}>{leafAnnotation.description}</Text>
+                </View>
+              )}
+            </>
+          )}
 
           <View style={S.divider} />
           <View style={S.spacer8} />

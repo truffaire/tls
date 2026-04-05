@@ -119,6 +119,38 @@ function normalizeEconomicImpact(value: unknown) {
   };
 }
 
+const LEAF_SEVERITIES = ["none", "mild", "moderate", "severe"] as const;
+type LeafSeverity = typeof LEAF_SEVERITIES[number];
+
+function safeLeafSeverity(value: unknown): LeafSeverity {
+  const s = typeof value === "string" ? value.toLowerCase() : "none";
+  return (LEAF_SEVERITIES as readonly string[]).includes(s) ? (s as LeafSeverity) : "none";
+}
+
+function normalizeLeafAnnotation(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return {
+      tip: "none" as LeafSeverity,
+      margins: "none" as LeafSeverity,
+      upperSurface: "none" as LeafSeverity,
+      lowerSurface: "none" as LeafSeverity,
+      midrib: "none" as LeafSeverity,
+      base: "none" as LeafSeverity,
+      description: "No symptom location data available.",
+    };
+  }
+  const a = value as Record<string, unknown>;
+  return {
+    tip: safeLeafSeverity(a.tip),
+    margins: safeLeafSeverity(a.margins),
+    upperSurface: safeLeafSeverity(a.upperSurface),
+    lowerSurface: safeLeafSeverity(a.lowerSurface),
+    midrib: safeLeafSeverity(a.midrib),
+    base: safeLeafSeverity(a.base),
+    description: asString(a.description, "Symptoms observed on leaf tissue."),
+  };
+}
+
 function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
   const diagnosis =
     rawDiagnosis && typeof rawDiagnosis === "object"
@@ -161,6 +193,7 @@ function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
       "Soil nutrient analysis",
     ]),
     seasonalCalendar: normalizeSeasonalCalendar(diagnosis.seasonalCalendar),
+    leafAnnotation: normalizeLeafAnnotation(diagnosis.leafAnnotation),
   };
 }
 
@@ -202,6 +235,15 @@ function fallbackDiagnosis(crop: string, language: string, reason?: string) {
         action: "Retake the scan with a clearer image before making treatment decisions.",
       },
     ],
+    leafAnnotation: {
+      tip: "none",
+      margins: "none",
+      upperSurface: "none",
+      lowerSurface: "none",
+      midrib: "none",
+      base: "none",
+      description: "Unable to determine symptom location.",
+    },
   };
 }
 
@@ -232,13 +274,13 @@ export const runDiagnosis = action({
     crop: v.string(),
     language: v.string(),
     location: v.optional(v.string()),
+    soilType: v.optional(v.string()),
     imageUrl: v.string(),
-    imageB64: v.optional(v.string()),
-    imageMimeType: v.optional(v.string()),
+    imageB64s: v.array(v.string()),
   },
   handler: async (
     ctx,
-    { clerkId, crop, language, location, imageUrl, imageB64, imageMimeType }
+    { clerkId, crop, language, location, soilType, imageUrl, imageB64s }
   ): Promise<{ reportId: string; diagnosis: unknown }> => {
     let creditDeducted = false;
     let reportId = generateReportId();
@@ -252,7 +294,7 @@ export const runDiagnosis = action({
         throw new Error("Invalid image input. Expected an uploaded image data URL.");
       }
 
-      if (!imageB64) {
+      if (!imageB64s || imageB64s.length === 0) {
         throw new Error("Missing image data for diagnosis.");
       }
 
@@ -292,6 +334,14 @@ export const runDiagnosis = action({
         ? `\nCurrent weather at farm location:\nTemperature: ${weatherData.temp}°C\nHumidity: ${weatherData.humidity}%\nConditions: ${weatherData.description}\nRecent rainfall: ${weatherData.rainfall}mm\nFactor these environmental conditions into your diagnosis and treatment urgency.`
         : "";
 
+      const soilContext = soilType
+        ? `\nFarmer's soil type: ${soilType}\n\nConsider how this soil type affects:\n- Nutrient availability and deficiencies\n- Water retention and drainage\n- pH tendencies for this soil\n- Treatment product effectiveness\n- Application rates and frequency\n\nFactor soil type into diagnosis and treatment recommendations specifically.`
+        : "";
+
+      const imageCountNote = imageB64s.length > 1
+        ? `\n${imageB64s.length} leaf photographs have been submitted. Analyse all images together for maximum accuracy.`
+        : "";
+
       const systemPrompt = `You are the Truffaire Labs Diagnostic Engine — the world's most advanced agricultural leaf diagnosis system. You have the knowledge of the greatest agricultural scientists in history combined.
 
 Your task: Analyse the uploaded leaf photograph and generate a complete, precise, scientifically rigorous diagnosis report.
@@ -304,7 +354,7 @@ STRICT RULES:
 - Base diagnosis on visible symptoms only — be precise
 - If multiple conditions exist, list primary, secondary, and contributing factors
 - Severity must be one of: Mild, Moderate, Severe
-- Confidence must be one of: High, Moderate, Low${locationContext}${weatherContext}
+- Confidence must be one of: High, Moderate, Low${locationContext}${weatherContext}${soilContext}${imageCountNote}
 
 Respond ONLY in valid JSON matching this exact structure:
 {
@@ -333,7 +383,16 @@ Respond ONLY in valid JSON matching this exact structure:
   "labTests": ["recommended test 1", "recommended test 2"],
   "seasonalCalendar": [
     { "period": "season/month", "action": "recommended action" }
-  ]
+  ],
+  "leafAnnotation": {
+    "tip": "none|mild|moderate|severe",
+    "margins": "none|mild|moderate|severe",
+    "upperSurface": "none|mild|moderate|severe",
+    "lowerSurface": "none|mild|moderate|severe",
+    "midrib": "none|mild|moderate|severe",
+    "base": "none|mild|moderate|severe",
+    "description": "one sentence describing exact symptom location on the leaf"
+  }
 }
 
 Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
@@ -343,27 +402,30 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         console.error("Diagnosis error: Missing ANTHROPIC_API_KEY");
       }
 
+      const imageBlocks = imageB64s.map((b64) => ({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: "image/jpeg",
+          data: b64,
+        },
+      }));
+
+      const textBlock = {
+        type: "text",
+        text: imageB64s.length > 1
+          ? `Analyse all ${imageB64s.length} leaf photographs provided. Multiple angles for accuracy. Base diagnosis on all images combined. Diagnose this ${crop} leaf. Respond in ${language}. Return JSON only.`
+          : `Diagnose this ${crop} leaf. Respond in ${language}. Return JSON only.`,
+      };
+
       const body: any = {
         model: "claude-sonnet-4-20250514",
-        max_tokens: 900,
+        max_tokens: 1200,
         system: systemPrompt,
         messages: [
           {
             role: "user",
-            content: [
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: imageMimeType ?? "image/jpeg",
-                  data: imageB64,
-                },
-              },
-              {
-                type: "text",
-                text: `Diagnose this ${crop} leaf. Respond in ${language}. Return JSON only.`,
-              },
-            ],
+            content: [...imageBlocks, textBlock],
           },
         ],
       };
@@ -422,6 +484,7 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         crop,
         language,
         ...(location ? { location } : {}),
+        ...(soilType ? { soilType } : {}),
         imageUrl,
         diagnosis,
       });

@@ -18,6 +18,7 @@ export default defineSchema({
     crop:      v.string(),
     language:  v.string(),
     location:  v.optional(v.string()), // farm location e.g. "Chitradurga, Karnataka"
+    soilType:  v.optional(v.string()), // soil type e.g. "Red / Laterite"
     imageUrl:  v.string(),
     diagnosis: v.any(),                // DiagnosisResult JSON
     createdAt: v.number(),

@@ -199,7 +199,6 @@ export default function Report() {
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
               {[
                 { k: "Crop",     v: report.crop     || "—" },
-                { k: "Language", v: report.language || "—" },
                 ...((report as any).location ? [{ k: "Location", v: (report as any).location as string }] : []),
                 ...((report as any).soilType ? [{ k: "Soil Type", v: (report as any).soilType as string }] : []),
                 { k: "Date",     v: date },

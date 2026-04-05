@@ -1,7 +1,7 @@
 # TLS — Truffaire LeafScan
 
 **A Truffaire Labs product.**
-Precision leaf diagnosis for every crop, every language, every farm on earth.
+Precision leaf diagnosis for every crop and every farm on earth.
 
 ---
 
@@ -109,7 +109,7 @@ Dashboard — Credit balance shown
         ↓
 User taps "New Scan"
         ↓
-Upload leaf + Select Crop + Language
+Upload leaf + Select Crop
         ↓
 Taps "Diagnose"
         ↓

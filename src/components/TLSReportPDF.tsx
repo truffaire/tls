@@ -524,7 +524,6 @@ type CalItem = { period?: unknown; action?: unknown };
 type ReportLike = {
   reportId?: string;
   crop?: string;
-  language?: string;
   location?: string;
   soilType?: string;
   createdAt?: number;
@@ -634,9 +633,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
 
   const reportId    = report?.reportId ?? "TLS-UNKNOWN";
   const crop        = String(report?.crop     ?? "Unknown Crop");
-  const language    = String(report?.language ?? "English");
-  const dynamicFont = getFontFamily(language);
-  const pageFont    = { fontFamily: dynamicFont };
+  const pageFont    = { fontFamily: "Helvetica" };
   const location = report?.location  ? String(report.location)  : null;
   const soilType = report?.soilType  ? String(report.soilType)  : null;
   const primary  = String(diagnosis.primary     ?? "Not available");
@@ -686,10 +683,6 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
           <View style={S.coverMetaRow}>
             <Text style={S.coverMetaLabel}>DATE</Text>
             <Text style={S.coverMetaValue}>{date}</Text>
-          </View>
-          <View style={S.coverMetaRow}>
-            <Text style={S.coverMetaLabel}>LANGUAGE</Text>
-            <Text style={S.coverMetaValue}>{language}</Text>
           </View>
           {location && (
             <View style={S.coverMetaRow}>
@@ -787,10 +780,6 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             <View style={S.diagRow}>
               <Text style={S.diagRowKey}>Scientific Name</Text>
               <Text style={S.diagRowValItalic}>{sciName}</Text>
-            </View>
-            <View style={S.diagRow}>
-              <Text style={S.diagRowKey}>Language</Text>
-              <Text style={S.diagRowVal}>{language}</Text>
             </View>
             <View style={S.diagRow}>
               <Text style={S.diagRowKey}>Report Date</Text>

@@ -103,7 +103,7 @@ export default function History() {
                       )}
                     </div>
                     <div style={{ fontSize: 12, color: "#AAAAAA", fontWeight: 300 }}>
-                      {report.crop} · {report.language} · {date}
+                      {report.crop} · {date}
                     </div>
                     <div style={{ fontSize: 10, color: "#CCCCCC", fontFamily: "monospace", marginTop: 4 }}>
                       {report.reportId}

@@ -211,9 +211,7 @@ function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
   };
 }
 
-type NormalizedDiagnosis = ReturnType<typeof normalizeDiagnosis>;
-
-function fallbackDiagnosis(crop: string, language: string, reason?: string) {
+function fallbackDiagnosis(crop: string, reason?: string) {
   const message = reason ? `Unable to analyze: ${reason}` : "Unable to analyze";
   return {
     disease: "Unknown", confidence: "Low", severity: "unknown",
@@ -221,7 +219,7 @@ function fallbackDiagnosis(crop: string, language: string, reason?: string) {
     urgency: "Review and retry with a clearer image",
     scientificName: crop,
     economicImpact: { yieldLossPercent: "unknown", description: "Unable to assess economic impact without a successful diagnosis." },
-    observations:    [`The ${crop} sample could not be fully analyzed in ${language}.`],
+    observations:    [`The ${crop} sample could not be fully analyzed in English.`],
     causes:          [message],
     treatment:       [{ priority: "Immediate", treatment: "Retake image", product: "No product recommendation available", method: "Upload a clear, well-lit close-up leaf image and retry analysis" }],
     prevention:      ["Ensure the leaf image is sharp, well lit, and fills most of the frame."],
@@ -247,98 +245,6 @@ function toStoredDiagnosis(
   };
 }
 
-// ── STEP 2: Translate display fields into target language ──────
-// Called only when language !== "English". Returns English diagnosis
-// unchanged if translation fails for any reason.
-async function translateDiagnosis(
-  diagnosis: NormalizedDiagnosis,
-  targetLanguage: string,
-  apiKey: string,
-): Promise<NormalizedDiagnosis> {
-  const fieldsToTranslate = {
-    primary:       diagnosis.primary,
-    secondary:     diagnosis.secondary,
-    contributing:  diagnosis.contributing,
-    urgency:       diagnosis.urgency,
-    economicImpact: { description: diagnosis.economicImpact.description },
-    observations:   diagnosis.observations,
-    causes:         diagnosis.causes,
-    treatment:      diagnosis.treatment.map(t => ({ treatment: t.treatment, method: t.method })),
-    prevention:     diagnosis.prevention,
-    labTests:       diagnosis.labTests,
-    seasonalCalendar: diagnosis.seasonalCalendar,
-    leafAnnotation: { description: diagnosis.leafAnnotation.description },
-  };
-
-  const translationPrompt = `Translate the following agricultural diagnosis fields to ${targetLanguage}.
-Return ONLY valid JSON with exactly the same structure and keys.
-RULES:
-- Keep scientific names (Latin), product names, and measurements in English
-- Translate all descriptive text string values to ${targetLanguage}
-- Do not add or remove any keys
-- Return ONLY the JSON object, no explanation, no markdown
-
-${JSON.stringify(fieldsToTranslate, null, 2)}`;
-
-  const raw = await callClaude(
-    apiKey,
-    { model: "claude-sonnet-4-20250514", max_tokens: 1500, messages: [{ role: "user", content: translationPrompt }] },
-    30000,
-  );
-
-  if (!raw) {
-    console.error("Translation: no response from engine");
-    return diagnosis;
-  }
-
-  const translated = safeParseJSON(raw);
-  if (!translated) {
-    console.error("Translation: could not parse response");
-    return diagnosis;
-  }
-
-  // Safely merge translated values — fall back to English on any missing field
-  return {
-    ...diagnosis,
-    primary:      asString(translated.primary,      diagnosis.primary),
-    secondary:    asOptionalString(translated.secondary)    ?? diagnosis.secondary,
-    contributing: asOptionalString(translated.contributing) ?? diagnosis.contributing,
-    urgency:      asString(translated.urgency, diagnosis.urgency),
-    economicImpact: {
-      yieldLossPercent: diagnosis.economicImpact.yieldLossPercent,
-      description: asString(
-        (translated.economicImpact as any)?.description,
-        diagnosis.economicImpact.description,
-      ),
-    },
-    observations:    asStringArray(translated.observations, diagnosis.observations),
-    causes:          asStringArray(translated.causes,       diagnosis.causes),
-    treatment: Array.isArray(translated.treatment)
-      ? diagnosis.treatment.map((orig, i) => {
-          const t = (translated.treatment as any[])[i];
-          if (!t || typeof t !== "object") return orig;
-          return { ...orig, treatment: asString(t.treatment, orig.treatment), method: asString(t.method, orig.method) };
-        })
-      : diagnosis.treatment,
-    prevention:   asStringArray(translated.prevention,   diagnosis.prevention),
-    labTests:     asStringArray(translated.labTests,     diagnosis.labTests),
-    seasonalCalendar: Array.isArray(translated.seasonalCalendar)
-      ? diagnosis.seasonalCalendar.map((orig, i) => {
-          const entry = (translated.seasonalCalendar as any[])[i];
-          if (!entry || typeof entry !== "object") return orig;
-          return { period: asString(entry.period, orig.period), action: asString(entry.action, orig.action) };
-        })
-      : diagnosis.seasonalCalendar,
-    leafAnnotation: {
-      ...diagnosis.leafAnnotation,
-      description: asString(
-        (translated.leafAnnotation as any)?.description,
-        diagnosis.leafAnnotation.description,
-      ),
-    },
-  };
-}
-
 // ── Main action ────────────────────────────────────────────────
 // Credits are always deducted before the engine runs.
 // If the engine or persistence step fails, the deducted credit is restored.
@@ -346,7 +252,6 @@ export const runDiagnosis = action({
   args: {
     clerkId:   v.string(),
     crop:      v.string(),
-    language:  v.string(),
     location:  v.optional(v.string()),
     soilType:  v.optional(v.string()),
     imageUrl:  v.string(),
@@ -354,7 +259,7 @@ export const runDiagnosis = action({
   },
   handler: async (
     ctx,
-    { clerkId, crop, language, location, soilType, imageUrl, imageB64s }
+    { clerkId, crop, location, soilType, imageUrl, imageB64s }
   ): Promise<{ reportId: string; diagnosis: unknown }> => {
     let creditDeducted = false;
     const reportId = generateReportId();
@@ -477,7 +382,7 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let diagnosis: any = toStoredDiagnosis(fallbackDiagnosis(crop, language, "analysis unavailable"), crop);
+      let diagnosis: any = toStoredDiagnosis(fallbackDiagnosis(crop, "analysis unavailable"), crop);
 
       try {
         const diagRaw = await callClaude(apiKey, {
@@ -492,29 +397,17 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         const parsedDiag = diagRaw ? safeParseJSON(diagRaw) : null;
 
         if (parsedDiag) {
-          let normalized: NormalizedDiagnosis = normalizeDiagnosis(parsedDiag, crop);
-
-          // ── STEP 2: Translate to target language (non-English) ───
-          if (language !== "English") {
-            try {
-              normalized = await translateDiagnosis(normalized, language, apiKey);
-            } catch (translationErr) {
-              console.error("Translation failed (non-blocking):", translationErr);
-              // Continue with English — never block report generation
-            }
-          }
-
-          const base = toStoredDiagnosis(normalized, crop);
+          const base = toStoredDiagnosis(normalizeDiagnosis(parsedDiag, crop), crop);
           diagnosis = weatherData ? { ...base, weatherData } : base;
         } else {
           console.error("Diagnosis: safeParseJSON returned null — using fallback");
-          const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, language, "JSON parse failed"), crop);
+          const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, "JSON parse failed"), crop);
           diagnosis = weatherData ? { ...fbBase, weatherData } : fbBase;
         }
       } catch (error) {
         console.error("Diagnosis engine error:", error);
         const reason = error instanceof Error ? error.message : "Unknown failure";
-        const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, language, reason), crop);
+        const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, reason), crop);
         diagnosis = weatherData ? { ...fbBase, weatherData } : fbBase;
       }
 
@@ -522,7 +415,6 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         reportId,
         userId: clerkId,
         crop,
-        language,
         ...(location ? { location } : {}),
         ...(soilType ? { soilType } : {}),
         imageUrl,
@@ -542,13 +434,13 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
       }
 
       const diagnosis = toStoredDiagnosis(
-        fallbackDiagnosis(crop, language, error instanceof Error ? error.message : "Unknown failure"),
+        fallbackDiagnosis(crop, error instanceof Error ? error.message : "Unknown failure"),
         crop,
       );
 
       try {
         await ctx.runMutation(internal.diagnose.saveReport, {
-          reportId, userId: clerkId, crop, language, imageUrl, diagnosis,
+          reportId, userId: clerkId, crop, imageUrl, diagnosis,
         });
         return { reportId, diagnosis };
       } catch (saveError) {

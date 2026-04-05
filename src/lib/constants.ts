@@ -9,7 +9,7 @@ export const CREDIT_PACKS = [
     popular:  false,
     features: [
       "3 full diagnosis reports",
-      "All crops and languages",
+      "All major crops supported",
       "PDF download",
     ],
   },
@@ -23,7 +23,7 @@ export const CREDIT_PACKS = [
     features: [
       "10 full diagnosis reports",
       "History dashboard",
-      "All crops and languages",
+      "All major crops supported",
       "PDF download and re-download",
     ],
   },
@@ -49,21 +49,4 @@ export const FEATURED_CROPS = [
   "Wheat", "Chilli", "Coconut", "Grapes", "Sugarcane", "Banana",
   "Potato", "Brinjal", "Onion", "Papaya", "Tea", "Rubber",
   "Arecanut", "Cardamom", "Turmeric", "Ginger", "Pepper", "Soybean",
-];
-
-// ── LANGUAGES ──────────────────────────────────────────────────
-export const LANGUAGES = [
-  "English", "Kannada", "Hindi", "Tamil", "Telugu", "Marathi",
-  "Malayalam", "Bengali", "Punjabi", "Odia", "Gujarati", "Assamese",
-  "Nepali", "Sinhala", "Arabic", "Spanish", "French", "Portuguese",
-  "Swahili", "German", "Japanese", "Mandarin", "Amharic", "Farsi",
-  "Turkish", "Russian", "Korean", "Italian", "Dutch", "Polish",
-];
-
-// ── MARQUEE LANGUAGES (display strip) ─────────────────────────
-export const MARQUEE_LANGUAGES = [
-  "English", "Kannada", "Hindi", "Tamil", "Telugu", "Marathi",
-  "Malayalam", "Arabic", "Spanish", "French", "Swahili", "Portuguese",
-  "Bengali", "Punjabi", "Nepali", "Japanese", "Mandarin", "German",
-  "Amharic", "Sinhala",
 ];

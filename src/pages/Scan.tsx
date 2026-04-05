@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import { FEATURED_CROPS } from "@/lib/constants";
 import { useTLSUser } from "@/lib/auth";
 
-type Step = "upload" | "crop" | "language" | "location" | "soil" | "confirm" | "processing";
+type Step = "upload" | "crop" | "location" | "soil" | "confirm" | "processing";
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const DATA_URL_PREFIX = "data:";
@@ -34,7 +34,6 @@ export default function Scan() {
   const [crop, setCrop]               = useState("");
   const [cropSearch, setCropSearch]   = useState("");
   const [location, setLocation]       = useState("");
-  const [language, setLanguage]       = useState("English");
   const [soilType, setSoilType]       = useState<string | null>(null);
   const [error, setError]             = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,7 +100,6 @@ export default function Scan() {
       const result = await runDiagnosis({
         clerkId:  user.id,
         crop,
-        language,
         location: location.trim() || undefined,
         soilType: soilType && soilType !== "dont-know" ? soilType : undefined,
         imageUrl: images[0] ?? "",
@@ -138,8 +136,7 @@ export default function Scan() {
               onClick={() => {
                 if (step === "upload")    navigate("/dashboard");
                 else if (step === "crop")     setStep("upload");
-                else if (step === "language") setStep("crop");
-                else if (step === "location") setStep("language");
+                else if (step === "location") setStep("crop");
                 else if (step === "soil")     setStep("location");
                 else if (step === "confirm")  setStep("soil");
               }}
@@ -280,7 +277,7 @@ export default function Scan() {
 
             {cropSearch && !FEATURED_CROPS.find(c => c.toLowerCase() === cropSearch.toLowerCase()) && (
               <button
-                onClick={() => { setCrop(cropSearch); setStep("language"); }}
+                onClick={() => { setCrop(cropSearch); setStep("location"); }}
                 style={customCropBtn}
               >
                 Use "{cropSearch}"
@@ -291,7 +288,7 @@ export default function Scan() {
               {filteredCrops.map((c) => (
                 <div
                   key={c}
-                  onClick={() => { setCrop(c); setStep("language"); }}
+                  onClick={() => { setCrop(c); setStep("location"); }}
                   style={{
                     border: `1.5px solid ${crop === c ? "#004643" : "#E8E8E8"}`,
                     background: crop === c ? "#e8f0ef" : "white",
@@ -302,39 +299,6 @@ export default function Scan() {
                   }}
                 >
                   {c}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP: LANGUAGE ── */}
-        {step === "language" && (
-          <div>
-            <h2 style={sh2}>Report<br /><strong>language</strong></h2>
-            <p style={sp}>Choose the language for your diagnosis report.</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginTop: 24 }}>
-              {["English", "Kannada", "Hindi", "Tamil", "Telugu", "Marathi"].map((lang) => (
-                <div
-                  key={lang}
-                  onClick={() => { setLanguage(lang); setStep("location"); }}
-                  style={{
-                    border: `1.5px solid ${language === lang ? "#004643" : "#E8E8E8"}`,
-                    background: language === lang ? "#e8f0ef" : "white",
-                    borderRadius: 14, padding: "16px 14px",
-                    cursor: "pointer", transition: "all 0.15s",
-                    display: "flex", alignItems: "center", gap: 10,
-                  }}
-                >
-                  <div style={{
-                    width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                    background: language === lang ? "#004643" : "#E8E8E8",
-                    transition: "all 0.15s",
-                  }} />
-                  <span style={{ fontSize: 14, fontWeight: language === lang ? 500 : 400, color: language === lang ? "#004643" : "#0C1618" }}>
-                    {lang}
-                  </span>
                 </div>
               ))}
             </div>
@@ -544,8 +508,8 @@ export default function Scan() {
 
 // ── Step indicator ─────────────────────────────────────────────
 function StepIndicator({ current }: { current: Step }) {
-  const steps: Step[] = ["upload", "crop", "language", "location", "soil", "confirm"];
-  const labels = ["Photo", "Crop", "Language", "Location", "Soil", "Confirm"];
+  const steps: Step[] = ["upload", "crop", "location", "soil", "confirm"];
+  const labels = ["Photo", "Crop", "Location", "Soil", "Confirm"];
   const idx = steps.indexOf(current);
 
   return (

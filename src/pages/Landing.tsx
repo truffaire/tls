@@ -712,7 +712,7 @@ function PhoneMockup() {
             <div style={{ fontSize: 9, color: "#AAAAAA", fontWeight: 300 }}>Camera or gallery</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, flexShrink: 0 }}>
-            {[{ l: "Crop", v: "Pomegranate" }, { l: "Language", v: "English" }].map((s) => (
+            {[{ l: "Crop", v: "Pomegranate" }, { l: "Report", v: "6 Pages" }].map((s) => (
               <div key={s.l} style={{ background: "#FAFAFA", border: "1px solid #E8E8E8", borderRadius: 10, padding: "9px 11px" }}>
                 <div style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: "0.07em", color: "#AAAAAA", fontWeight: 500 }}>{s.l}</div>
                 <div style={{ fontSize: 11, fontWeight: 500, marginTop: 1 }}>{s.v}</div>

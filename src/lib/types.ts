@@ -1,7 +1,6 @@
 // ── SCAN / REPORT ─────────────────────────────────────────────
 export interface ScanRequest {
   crop:     string;
-  language: string;
   imageUrl: string;
 }
 
@@ -37,7 +36,6 @@ export interface Report {
   reportId:  string;
   userId:    string;
   crop:      string;
-  language:  string;
   imageUrl:  string;
   diagnosis: DiagnosisResult;
   createdAt: number;

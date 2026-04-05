@@ -9,6 +9,8 @@ import History from "@/pages/History";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import Callback from "@/pages/Callback";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const location = useLocation();
@@ -50,6 +52,8 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/" element={isSignedIn ? <Navigate to="/dashboard" replace /> : <Landing />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       <Route path="/login" element={<Login />} />
       <Route path="/callback" element={<Callback />} />
       <Route path="/sign-in/*" element={<SignIn routing="path" path="/sign-in" />} />

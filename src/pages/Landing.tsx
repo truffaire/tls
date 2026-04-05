@@ -67,27 +67,25 @@ const GLOBAL_CSS = `
   .hero-img-wrap { position: relative; width: 100%; }
   .hero-farm-img {
     width: 100%;
-    height: 280px;
+    height: 260px;
     object-fit: cover;
     object-position: center;
-    border-radius: 24px;
+    border-radius: 20px;
     display: block;
     background: #1a2e2c;
   }
   @media (min-width: 768px) {
     .hero-outer { padding: 120px 40px 80px; }
-    .hero-inner { flex-direction: row; align-items: center; gap: 56px; }
-    .hero-text { flex: 0 0 55%; }
-    .hero-img-wrap { flex: 0 0 42%; }
-    .hero-farm-img { height: 440px; }
   }
   @media (min-width: 1024px) {
     .hero-outer { padding: 120px 60px 80px; }
+    .hero-inner { flex-direction: row; align-items: center; gap: 56px; }
+    .hero-text { flex: 1; }
+    .hero-img-wrap { flex: 1; }
     .hero-farm-img { height: 480px; }
   }
   @media (min-width: 1440px) {
     .hero-outer { padding: 140px 80px 100px; }
-    .hero-farm-img { height: 520px; }
   }
 
   /* Hero headline sizes */
@@ -284,18 +282,12 @@ export default function Landing() {
             <h1 style={{ margin: "0 0 20px", padding: 0 }}>
               <span className="hero-line1">Your crop has a problem.</span>
               <span className="hero-line2">Here's exactly what to do.</span>
-              <span className="hero-line3">Find out why.</span>
             </h1>
 
             {/* Sub */}
-            <p style={{ fontSize: 16, fontWeight: 300, color: "#666666", maxWidth: 420, lineHeight: 1.7, margin: "0 0 28px" }}>
-              Upload a leaf photo. Get a complete scientific diagnosis with treatment protocol, economic impact, and step-by-step action plan — in under 2 minutes.
+            <p style={{ fontSize: 15, fontWeight: 300, color: "#666666", maxWidth: 400, lineHeight: 1.7, margin: "0 0 28px" }}>
+              Upload a leaf photo. Get a complete diagnosis with treatment timeline and economic impact.
             </p>
-
-            {/* Urgency */}
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#991B1B", marginBottom: 14 }}>
-              Every day without treatment = more crop loss
-            </div>
 
             {/* CTA */}
             <button onClick={handleScan} className="cta-btn" style={{ marginBottom: 10 }}>
@@ -303,18 +295,8 @@ export default function Landing() {
             </button>
 
             {/* Secondary */}
-            <div style={{ fontSize: 11, color: "#AAAAAA", textAlign: "center", marginBottom: 14 }}>
-              No password · No OTP · Sign in with Google
-            </div>
-
-            {/* Trust */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              {["🔒 Secure", "📋 6-Page Report", "⚡ 2 Minutes"].map((t, i) => (
-                <span key={t} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {i > 0 && <span style={{ color: "#CCCCCC" }}>·</span>}
-                  <span style={{ fontSize: 11, color: "#AAAAAA" }}>{t}</span>
-                </span>
-              ))}
+            <div style={{ fontSize: 11, color: "#AAAAAA", marginBottom: 0 }}>
+              Sign in with Google · No password · No OTP
             </div>
           </div>
 
@@ -329,9 +311,9 @@ export default function Landing() {
             />
             {/* Floating diagnosis card */}
             <div style={{
-              position: "absolute", bottom: 16, left: 16,
-              background: "white", borderRadius: 16, padding: "14px 18px",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.2)", width: 210, zIndex: 10,
+              position: "absolute", bottom: 20, left: 20,
+              background: "white", borderRadius: 12, padding: "14px 16px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxWidth: 200, zIndex: 10,
             }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#0C1618", marginBottom: 7 }}>Bacterial Blight</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 7 }}>
@@ -682,30 +664,31 @@ export default function Landing() {
           Truffaire Private Limited accepts no liability for decisions made solely on the basis of this report.
         </p>
       </div>
-      <footer style={{ padding: "44px var(--page-padding) 36px", borderTop: "1px solid #F5F5F5" }}>
+      <footer style={{ padding: "32px var(--page-padding)", borderTop: "1px solid #F5F5F5" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 32, height: 32, background: "#0C1618", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3C9 3 6.5 6.5 6.5 11c0 3.5 2 6.5 5.5 8.5 3.5-2 5.5-5 5.5-8.5C17.5 6.5 15 3 12 3z"/>
-              </svg>
+          {/* Top row: brand left, links right */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 30, height: 30, background: "#0C1618", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3C9 3 6.5 6.5 6.5 11c0 3.5 2 6.5 5.5 8.5 3.5-2 5.5-5 5.5-8.5C17.5 6.5 15 3 12 3z"/>
+                </svg>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "#0C1618" }}>TLS <span style={{ color: "#AAAAAA", fontWeight: 300 }}>— Truffaire LeafScan</span></span>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>
-              TLS <span style={{ color: "#AAAAAA", fontWeight: 300 }}>— Truffaire LeafScan</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+              <a href="/privacy" style={{ fontSize: 12, color: "#AAAAAA", textDecoration: "none", fontWeight: 400 }}>Privacy Policy</a>
+              <a href="/terms" style={{ fontSize: 12, color: "#AAAAAA", textDecoration: "none", fontWeight: 400 }}>Terms of Service</a>
+              <a href="https://www.truffaire.in" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#AAAAAA", textDecoration: "none", fontWeight: 400 }}>truffaire.in</a>
             </div>
           </div>
-          <p style={{ fontSize: 13, fontWeight: 300, color: "#AAAAAA", lineHeight: 1.65, maxWidth: 300, marginBottom: 24 }}>
-            A Truffaire Labs product. Precision leaf diagnosis for every crop, every farm on earth.
+          <p style={{ fontSize: 12, fontWeight: 300, color: "#CCCCCC", margin: "0 0 20px" }}>
+            Precision leaf diagnosis for Indian farmers.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 18, marginBottom: 28 }}>
-            {["Privacy Policy", "Terms of Service", "Refund Policy", "truffaire.in"].map((l) => (
-              <a key={l} href="#" style={{ fontSize: 12, color: "#AAAAAA", textDecoration: "none", fontWeight: 400 }}>{l}</a>
-            ))}
-          </div>
-          <div style={{ borderTop: "1px solid #F5F5F5", paddingTop: 18, display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ fontSize: 10, color: "#AAAAAA", fontWeight: 300 }}>Truffaire Private Limited · CIN: U01136KA2025PTC206761 · Bengaluru, Karnataka, India</div>
-            <div style={{ fontSize: 10, color: "#AAAAAA", fontWeight: 300 }}>one@truffaire.in · tls.truffaire.in</div>
-            <div style={{ fontSize: 10, color: "#AAAAAA", fontWeight: 300, marginTop: 4 }}>© 2026 Truffaire Private Limited. All rights reserved.</div>
+          {/* Bottom row: copyright left, CIN right */}
+          <div style={{ borderTop: "1px solid #F5F5F5", paddingTop: 16, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 6 }}>
+            <div style={{ fontSize: 10, color: "#AAAAAA", fontWeight: 300 }}>© 2026 Truffaire Private Limited</div>
+            <div style={{ fontSize: 10, color: "#AAAAAA", fontWeight: 300 }}>CIN: U01136KA2025PTC206761 · Bengaluru</div>
           </div>
         </div>
       </footer>

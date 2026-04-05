@@ -222,7 +222,7 @@ const S = StyleSheet.create({
   },
   diagPrimaryText: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     color: C.dark,
     lineHeight: 1.2,
   },
@@ -249,7 +249,7 @@ const S = StyleSheet.create({
   diagGridValue: {
     fontSize: 9.5,
     color: C.dark,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     lineHeight: 1.3,
   },
   diagRow: {
@@ -351,7 +351,7 @@ const S = StyleSheet.create({
   },
   treatName: {
     fontSize: 11,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     color: C.dark,
     flex: 1,
     lineHeight: 1.3,
@@ -402,7 +402,7 @@ const S = StyleSheet.create({
   },
   calCellPeriod: {
     fontSize: 8.5,
-    fontWeight: "bold",
+    fontFamily: "Helvetica-Bold",
     color: C.dark,
     width: "30%",
     lineHeight: 1.4,
@@ -633,7 +633,6 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
 
   const reportId    = report?.reportId ?? "TLS-UNKNOWN";
   const crop        = String(report?.crop     ?? "Unknown Crop");
-  const pageFont    = { fontFamily: "Helvetica" };
   const location = report?.location  ? String(report.location)  : null;
   const soilType = report?.soilType  ? String(report.soilType)  : null;
   const primary  = String(diagnosis.primary     ?? "Not available");
@@ -665,7 +664,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
     <Document title={`TLS Report — ${crop} — ${reportId}`} author="Truffaire Labs">
 
       {/* ══════════════ PAGE 1 — COVER ══════════════ */}
-      <Page size="A4" style={[S.pageCover, pageFont]}>
+      <Page size="A4" style={S.pageCover}>
 
         <View style={S.coverTopBar}>
           <Text style={S.coverBrand}>TRUFFAIRE LABS</Text>
@@ -718,7 +717,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
       </Page>
 
       {/* ══════════════ PAGE 2 — DIAGNOSIS SUMMARY ══════════════ */}
-      <Page size="A4" style={[S.page, pageFont]}>
+      <Page size="A4" style={S.page}>
         <PageHeader reportId={reportId} page="Page 2" />
 
         <View style={S.body}>
@@ -819,7 +818,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
       </Page>
 
       {/* ══════════════ PAGE 3 — OBSERVATIONS & CAUSES ══════════════ */}
-      <Page size="A4" style={[S.page, pageFont]}>
+      <Page size="A4" style={S.page}>
         <PageHeader reportId={reportId} page="Page 3" />
 
         <View style={S.body}>
@@ -906,7 +905,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
       </Page>
 
       {/* ══════════════ PAGE 4 — TREATMENT PROTOCOL ══════════════ */}
-      <Page size="A4" style={[S.page, pageFont]}>
+      <Page size="A4" style={S.page}>
         <PageHeader reportId={reportId} page="Page 4" />
 
         <View style={S.body}>
@@ -953,7 +952,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
       </Page>
 
       {/* ══════════════ PAGE 5 — PREVENTION & LAB TESTS ══════════════ */}
-      <Page size="A4" style={[S.page, pageFont]}>
+      <Page size="A4" style={S.page}>
         <PageHeader reportId={reportId} page="Page 5" />
 
         <View style={S.body}>
@@ -1006,7 +1005,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
       </Page>
 
       {/* ══════════════ PAGE 6 — SEASONAL CALENDAR + FOOTER ══════════════ */}
-      <Page size="A4" style={[S.page, pageFont]}>
+      <Page size="A4" style={S.page}>
         <PageHeader reportId={reportId} page="Page 6" />
 
         <View style={S.body}>

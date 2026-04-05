@@ -9,6 +9,14 @@ function generateReportId(): string {
   return `TLS-${year}-KA-${rand}`;
 }
 
+function getMediaType(base64: string): "image/jpeg" | "image/png" | "image/gif" | "image/webp" {
+  if (base64.startsWith("/9j/"))    return "image/jpeg";
+  if (base64.startsWith("iVBORw")) return "image/png";
+  if (base64.startsWith("R0lGOD")) return "image/gif";
+  if (base64.startsWith("UklGR"))  return "image/webp";
+  return "image/jpeg";
+}
+
 function isWindowsPath(value: string) {
   return /^[a-zA-Z]:\\/.test(value);
 }
@@ -406,7 +414,7 @@ Return ONLY the JSON object. No preamble, no markdown, no explanation.`;
         type: "image",
         source: {
           type: "base64",
-          media_type: "image/jpeg",
+          media_type: getMediaType(b64),
           data: b64,
         },
       }));

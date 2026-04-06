@@ -62,7 +62,7 @@ export default function App() {
       {/* Protected */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
-      <Route path="/report/:id" element={<ProtectedRoute><Report /></ProtectedRoute>} />
+      <Route path="/report/:id" element={<Report />} />
       <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
 
       <Route path="*" element={<NotFound />} />

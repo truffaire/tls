@@ -155,7 +155,7 @@ function normalizeEconomicImpact(value: unknown) {
   }
   const e = value as Record<string, unknown>;
   return {
-    yieldLossPercent: asString(e.yieldLossPercent, "varies"),
+    yieldLossPercent: asString(e.yieldLossPercent, "varies").replace(/%/g, ""),
     description:      asString(e.description,      "Act promptly to minimise yield loss."),
   };
 }
@@ -319,6 +319,12 @@ IMAGE QUALITY:
 - Lighting (well-lit/overexposed/underexposed)
 - Leaf coverage (full leaf/partial/close-up of lesion only)
 
+IMPORTANT — for pale or low-contrast lesions:
+Distinguish carefully between:
+(a) DRY pale lesions — center appears bleached, papery, or chalky. Tissue feels dry. Edges are defined. This is NOT water-soaked.
+(b) WET pale lesions — center appears translucent when held to light, greasy or glass-like texture, margins fade into healthy tissue. This IS water-soaked.
+Do not describe a lesion as water-soaked unless translucency or greasiness is clearly visible. When in doubt, describe as dry-pale, not water-soaked.
+
 Crop being examined: ${crop}
 
 Write your observations as a structured plain-text report. Be precise and factual. No diagnosis. No disease names. Only what you can see.`;
@@ -339,9 +345,13 @@ Write your observations as a structured plain-text report. Be precise and factua
     max_tokens: 500,
     system: systemPrompt,
     messages: [{ role: "user", content: [...imageBlocks, textBlock] }],
-  }, 30000);
+  }, 40000);
 
-  return raw ?? "Leaf image submitted. Visual observation could not be completed due to an API error. Proceed with diagnosis based on crop and context only.";
+  if (!raw) {
+    console.error("observeLeaf: callClaude returned null — API error or timeout");
+    throw new Error("Observation step failed.");
+  }
+  return raw;
 }
 
 // ── Action 2: diagnoseFromObservations ─────────────────────
@@ -635,10 +645,19 @@ Complete Sections 2 and 3 in your internal reasoning using the observations from
     max_tokens: 2500,
     system: systemPrompt,
     messages: [{ role: "user", content: "Complete the diagnosis using the Section 1 observations. Return JSON only." }],
-  }, 45000);
+  }, 70000);
 
-  console.log("Diagnosis response:", raw?.slice(0, 800));
-  return raw ? safeParseJSON(raw) : null;
+  if (!raw) {
+    console.error("diagnoseFromObservations: callClaude returned null — API error or timeout");
+    throw new Error("Diagnosis step failed.");
+  }
+  console.log("Diagnosis response:", raw.slice(0, 800));
+  const parsed = safeParseJSON(raw);
+  if (!parsed) {
+    console.error("diagnoseFromObservations: JSON parse failed. Raw:", raw.slice(0, 400));
+    throw new Error("Diagnosis step failed.");
+  }
+  return parsed;
 }
 
 // ── Main action ────────────────────────────────────────────────

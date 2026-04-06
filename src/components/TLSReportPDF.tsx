@@ -767,7 +767,7 @@ export default function TLSReportPDF({ report }: { report: ReportLike }) {
             <View style={{ backgroundColor: C.amberBg, borderLeftWidth: 3, borderLeftColor: C.amber, padding: 12, marginBottom: 16 }}>
               <Text style={{ fontSize: 8, fontFamily: "Helvetica-Bold", color: C.amber, letterSpacing: 1.2, marginBottom: 5 }}>ECONOMIC RISK</Text>
               <Text style={{ fontSize: 9, color: C.dark, lineHeight: 1.5 }}>
-                Left untreated, this condition can reduce yield by {econImpact.yieldLossPercent ?? "varies"}%. {econImpact.description ?? ""}
+                Left untreated, this condition can reduce yield by {String(econImpact.yieldLossPercent ?? "varies").replace(/%/g, "")}%. {econImpact.description ?? ""}
               </Text>
             </View>
           )}

@@ -206,7 +206,7 @@ export default function Report() {
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 18 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 38, fontWeight: 800, color: "#FCD34D", letterSpacing: "-0.04em", lineHeight: 1 }}>
-                  {econImpact.yieldLossPercent ?? "—"}%
+                  {String(econImpact.yieldLossPercent ?? "—").replace(/%/g, "")}%
                 </span>
                 <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", fontWeight: 300 }}>
                   potential yield loss if untreated
@@ -286,7 +286,7 @@ export default function Report() {
         {econImpact && (
           <Card label="FINANCIAL IMPACT" title="Economic Decision">
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${treatmentCost ? 3 : 2}, 1fr)`, gap: 8, marginBottom: 14 }}>
-              <MetricCard label="Yield Loss"  value={`${econImpact.yieldLossPercent ?? "—"}%`}  sub="if untreated"   highlight="amber" />
+              <MetricCard label="Yield Loss"  value={`${String(econImpact.yieldLossPercent ?? "—").replace(/%/g, "")}%`}  sub="if untreated"   highlight="amber" />
               {treatmentCost && (
                 <MetricCard label="Treatment Cost" value={treatmentCost.perAcre ? `₹${treatmentCost.perAcre}` : "—"} sub={treatmentCost.basis ?? "per acre"} highlight="teal" />
               )}

@@ -529,21 +529,36 @@ async function diagnoseFromObservations(
     .map(({ part, text }) => `${part.toUpperCase()} OBSERVATIONS:\n${text}`)
     .join("\n\n─────────────────────────────────────────\n\n");
 
-  // Build permitted disease list for submitted parts
+  // Build permitted disease list — max 12 per part (8 if prompt is large)
   const submittedParts = [...new Set(observationsByPart.map((o) => o.part))];
-  const diseaseLines = submittedParts.map((part) => {
-    const diseases = getDiseaseList(crop, part);
-    return diseases.length > 0
-      ? `${part.toUpperCase()}: ${diseases.join(" | ")}`
-      : `${part.toUpperCase()}: [No registry data — use general agronomic knowledge for ${crop}]`;
-  });
-  const permittedDiseasesBlock = diseaseLines.length > 0
-    ? `PERMITTED DIAGNOSES FOR ${crop}:
-You MUST select primary from this list only. Output exactly as written. No variations.
-If no match is found: output "Unknown".
 
-${diseaseLines.join("\n")}`
-    : "";
+  // First pass: check total size with 12 per part
+  let maxPerPart = 12;
+  const buildDiseaseBlock = (limit: number): string => {
+    const sections = submittedParts.map((part) => {
+      const diseases = getDiseaseList(crop, part).slice(0, limit);
+      if (diseases.length === 0) return null;
+      const numbered = diseases.map((d, i) => `${i + 1}. ${d}`).join("\n");
+      return `${part.toUpperCase()} — select one:\n${numbered}`;
+    }).filter(Boolean);
+
+    if (sections.length === 0) return "";
+
+    return `PERMITTED DIAGNOSES FOR ${crop}:
+Primary MUST be exactly one item from the relevant part list below.
+Secondary may be from any part list or null.
+No disease outside these lists is permitted. If no match: output "Unknown".
+
+${sections.join("\n\n")}`;
+  };
+
+  let permittedDiseasesBlock = buildDiseaseBlock(maxPerPart);
+  // Rough prompt size guard: if disease block alone > 1500 chars, cut to 8
+  if (permittedDiseasesBlock.length > 1500) {
+    maxPerPart = 8;
+    permittedDiseasesBlock = buildDiseaseBlock(maxPerPart);
+  }
+  console.log(`Disease block: ${permittedDiseasesBlock.length} chars, ${maxPerPart} per part`);
 
   // Build district history block
   const districtBlock = districtHistory.length > 0
@@ -828,9 +843,14 @@ Output ONLY the following JSON. No preamble. No explanation. No markdown. Raw JS
   ]
 }`;
 
+  console.log(`diagnoseFromObservations: prompt ${systemPrompt.length} chars, parts=[${submittedParts.join(",")}], crop=${crop}`);
+  if (systemPrompt.length > 8000) {
+    console.warn(`diagnoseFromObservations: prompt is large (${systemPrompt.length} chars) — consider reducing observation tokens`);
+  }
+
   const raw = await callClaude(apiKey, {
     model: "claude-sonnet-4-20250514",
-    max_tokens: 3000,
+    max_tokens: 4000,
     system: systemPrompt,
     messages: [{ role: "user", content: "Complete the diagnosis using the Section 1 observations. Return JSON only." }],
   }, 70000);

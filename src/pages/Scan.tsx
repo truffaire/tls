@@ -706,12 +706,17 @@ export default function Scan() {
     setIsSubmitting(true);
     try {
       const result = await runDiagnosis({
-        clerkId:  user.id,
+        clerkId:         user.id,
         crop,
-        location: location.trim() || undefined,
-        soilType: undefined,
-        imageUrl: photos[0]?.dataUrl ?? "",
-        imageB64s: photos.map((p) => p.b64),
+        location:        location.trim() || undefined,
+        soilType:        undefined,
+        imageUrl:        photos[0]?.dataUrl ?? "",
+        imageB64s:       photos.map((p) => p.b64),
+        plantParts:      photos.map((p) => p.tag),
+        growthStage:     growthStage  ?? undefined,
+        symptomDuration: symptomDuration ?? undefined,
+        spreadExtent:    spreadExtent    ?? undefined,
+        recentActivity:  recentActivity.length > 0 ? recentActivity : undefined,
       });
       navigate(`/report/${result.reportId}`);
     } catch (err: any) {

@@ -2,12 +2,29 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
+// ── Disease registry (loaded at module init) ──────────────────
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cropRegistry: Record<string, Record<string, string[]>> = require("./cropDiseaseRegistry.json");
+
+function getDiseaseList(crop: string, plantPart: string): string[] {
+  const cropData = cropRegistry[crop] ?? cropRegistry[crop.toLowerCase()] ?? null;
+  if (!cropData) return [];
+  // Try exact case, then title-case, then lowercase
+  const key =
+    cropData[plantPart] ? plantPart :
+    cropData[plantPart.charAt(0).toUpperCase() + plantPart.slice(1).toLowerCase()]
+      ? plantPart.charAt(0).toUpperCase() + plantPart.slice(1).toLowerCase()
+    : Object.keys(cropData).find(k => k.toLowerCase() === plantPart.toLowerCase())
+    ?? null;
+  if (!key) return [];
+  return cropData[key] ?? [];
+}
+
 // ── ID generation ──────────────────────────────────────────────
 function generateReportId(): string {
-  const date = new Date();
-  const year = date.getFullYear();
+  const year = new Date().getFullYear();
   const rand = Math.floor(100000 + Math.random() * 900000);
-  return `TLS-${year}-KA-${rand}`;
+  return `ARCORA-${year}-KA-${rand}`;
 }
 
 // ── Image helpers ──────────────────────────────────────────────
@@ -50,21 +67,16 @@ function asStringArray(value: unknown, fallback: string[]): string[] {
   return items.length > 0 ? items : fallback;
 }
 
-// ── Robust JSON parser — never throws ─────────────────────────
+// ── Robust JSON parser ─────────────────────────────────────────
 function safeParseJSON(raw: string): Record<string, unknown> | null {
-  // Attempt 1: strip markdown fences and parse
   try {
     const clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(clean);
   } catch { /* continue */ }
-
-  // Attempt 2: extract the outermost {...} block and parse
   try {
     const match = raw.match(/\{[\s\S]*\}/);
     if (match) return JSON.parse(match[0]);
   } catch { /* continue */ }
-
-  // Give up — caller will use fallback diagnosis
   return null;
 }
 
@@ -106,10 +118,10 @@ async function callClaude(
 function normalizeTreatment(value: unknown) {
   if (!Array.isArray(value)) {
     return [{
-      priority: "Immediate",
+      priority:  "Immediate",
       treatment: "Field inspection and agronomic correction",
-      product: "Apply crop-specific corrective inputs after confirming deficiency or disease pressure",
-      method: "Inspect the field within 24 hours and follow a crop-specific corrective spray or drench protocol",
+      product:   "Apply crop-specific corrective inputs after confirming deficiency or disease pressure",
+      method:    "Inspect the field within 24 hours and follow a crop-specific corrective spray or drench protocol",
     }];
   }
   const rows = value
@@ -125,10 +137,10 @@ function normalizeTreatment(value: unknown) {
     })
     .filter((e): e is NonNullable<typeof e> => e !== null);
   return rows.length > 0 ? rows : [{
-    priority: "Immediate",
+    priority:  "Immediate",
     treatment: "Field inspection and agronomic correction",
-    product: "Apply crop-specific corrective inputs after confirming deficiency or disease pressure",
-    method: "Inspect the field within 24 hours and follow a crop-specific corrective spray or drench protocol",
+    product:   "Apply crop-specific corrective inputs after confirming deficiency or disease pressure",
+    method:    "Inspect the field within 24 hours and follow a crop-specific corrective spray or drench protocol",
   }];
 }
 
@@ -201,6 +213,22 @@ function normalizeLeafAnnotation(value: unknown) {
   };
 }
 
+function normalizePlantPartDiagnoses(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((e) => e && typeof e === "object")
+    .map((e) => {
+      const row = e as Record<string, unknown>;
+      return {
+        part:         asString(row.part,     "Leaf"),
+        primary:      asString(row.primary,  "Inconclusive"),
+        severity:     asString(row.severity, "Moderate"),
+        observations: asStringArray(row.observations, []),
+        treatment:    normalizeTreatment(row.treatment),
+      };
+    });
+}
+
 function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
   const diagnosis =
     rawDiagnosis && typeof rawDiagnosis === "object"
@@ -210,6 +238,13 @@ function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
   const severity   = asString(diagnosis.severity,   "Moderate");
   const confidence = asString(diagnosis.confidence, "Moderate");
 
+  // Health score: clamp 5-100, default based on severity
+  let healthScore = typeof diagnosis.healthScore === "number" ? Math.round(diagnosis.healthScore) : null;
+  if (healthScore === null) {
+    healthScore = severity === "Severe" ? 40 : severity === "Mild" ? 72 : 58;
+  }
+  healthScore = Math.max(5, Math.min(100, healthScore));
+
   return {
     primary:      asString(diagnosis.primary, "Further agronomic review required"),
     secondary:    asOptionalString(diagnosis.secondary),
@@ -218,18 +253,21 @@ function normalizeDiagnosis(rawDiagnosis: unknown, crop: string) {
     confidence:   ["High","Moderate","Low"].includes(confidence)    ? confidence : "Moderate",
     urgency:      asString(diagnosis.urgency, "Act within 7 days"),
     scientificName: asString(diagnosis.scientificName, crop),
-    economicImpact:  normalizeEconomicImpact(diagnosis.economicImpact),
-    observations:    asStringArray(diagnosis.observations, ["Visible symptoms were present on the submitted leaf sample."]),
-    causes:          asStringArray(diagnosis.causes,       ["A crop-specific agronomic stress is affecting the submitted sample."]),
-    treatment:       normalizeTreatment(diagnosis.treatment),
-    prevention:      asStringArray(diagnosis.prevention, ["Continue routine field scouting and maintain balanced crop nutrition."]),
-    labTests:        asStringArray(diagnosis.labTests,   ["Leaf tissue analysis", "Soil nutrient analysis"]),
-    seasonalCalendar: normalizeSeasonalCalendar(diagnosis.seasonalCalendar),
-    leafAnnotation:   normalizeLeafAnnotation(diagnosis.leafAnnotation),
-    treatmentCost:    normalizeTreatmentCost(diagnosis.treatmentCost),
+    healthScore,
+    primaryFinding:    asOptionalString(diagnosis.primaryFinding),
+    economicImpact:    normalizeEconomicImpact(diagnosis.economicImpact),
+    observations:      asStringArray(diagnosis.observations, ["Visible symptoms were present on the submitted sample."]),
+    causes:            asStringArray(diagnosis.causes,       ["A crop-specific agronomic stress is affecting the submitted sample."]),
+    treatment:         normalizeTreatment(diagnosis.treatment),
+    prevention:        asStringArray(diagnosis.prevention, ["Continue routine field scouting and maintain balanced crop nutrition."]),
+    labTests:          asStringArray(diagnosis.labTests,   ["Leaf tissue analysis", "Soil nutrient analysis"]),
+    seasonalCalendar:  normalizeSeasonalCalendar(diagnosis.seasonalCalendar),
+    leafAnnotation:    normalizeLeafAnnotation(diagnosis.leafAnnotation),
+    treatmentCost:     normalizeTreatmentCost(diagnosis.treatmentCost),
+    plantPartDiagnoses: normalizePlantPartDiagnoses(diagnosis.plantPartDiagnoses),
     primaryConfidence:      asConfidenceInt(diagnosis.primaryConfidence,      75),
-    secondaryConfidence:    asConfidenceInt(diagnosis.secondaryConfidence,    18),
-    contributingConfidence: asConfidenceInt(diagnosis.contributingConfidence,  7),
+    secondaryConfidence:    asConfidenceInt(diagnosis.secondaryConfidence,     18),
+    contributingConfidence: asConfidenceInt(diagnosis.contributingConfidence,   7),
   };
 }
 
@@ -240,15 +278,18 @@ function fallbackDiagnosis(crop: string, reason?: string) {
     primary: "Unknown", secondary: null, contributing: null,
     urgency: "Review and retry with a clearer image",
     scientificName: crop,
+    healthScore: 50,
+    primaryFinding: "Retake the scan with a clearer, well-lit close-up image to get an accurate diagnosis.",
     economicImpact: { yieldLossPercent: "unknown", description: "Unable to assess economic impact without a successful diagnosis." },
-    observations:    [`The ${crop} sample could not be fully analyzed in English.`],
+    observations:    [`The ${crop} sample could not be fully analyzed.`],
     causes:          [message],
-    treatment:       [{ priority: "Immediate", treatment: "Retake image", product: "No product recommendation available", method: "Upload a clear, well-lit close-up leaf image and retry analysis" }],
-    prevention:      ["Ensure the leaf image is sharp, well lit, and fills most of the frame."],
+    treatment:       [{ priority: "Immediate", treatment: "Retake image", product: "No product recommendation available", method: "Upload a clear, well-lit close-up image and retry analysis" }],
+    prevention:      ["Ensure the image is sharp, well lit, and fills most of the frame."],
     labTests:        ["Consult a local agronomist or lab for confirmation."],
     seasonalCalendar: [{ period: "Now", action: "Retake the scan with a clearer image before making treatment decisions." }],
     leafAnnotation:   { tip: "none", margins: "none", upperSurface: "none", lowerSurface: "none", midrib: "none", base: "none", description: "Unable to determine symptom location." },
     treatmentCost:    null,
+    plantPartDiagnoses: [],
     primaryConfidence:      75,
     secondaryConfidence:    18,
     contributingConfidence:  7,
@@ -271,20 +312,14 @@ function toStoredDiagnosis(
   };
 }
 
-// ── Action 1: observeLeaf ──────────────────────────────────
-// Vision-only call. No disease names. No diagnosis. Pure visual description.
-async function observeLeaf(
-  apiKey: string,
-  imageB64s: string[],
-  crop: string,
-): Promise<string> {
-  const systemPrompt = `You are a precision agricultural pathology imaging system. Your only task is visual observation.
+// ─────────────────────────────────────────────────────────────
+//  observePart — vision-only, adapts by plant part
+// ─────────────────────────────────────────────────────────────
+function buildPartObservationPrompt(crop: string, part: string): string {
+  const partUpper = part.toUpperCase();
 
-Examine the submitted leaf photograph(s) carefully. Describe ONLY what you can directly see. Do not name any disease. Do not provide any diagnosis. Do not suggest treatments. Do not infer causes.
-
-Describe the following with precision:
-
-LESION MORPHOLOGY (if lesions are present):
+  const PART_TARGETS: Record<string, string> = {
+    Leaf: `LESION MORPHOLOGY (if lesions are present):
 - Shape of lesions (circular, angular, irregular, fusiform, linear, blotchy)
 - Size range (pinpoint <2mm, small 2-5mm, medium 5-15mm, large >15mm)
 - Edge character (sharply defined, diffuse/blurry, water-soaked, raised, sunken)
@@ -314,21 +349,138 @@ STRUCTURAL CHANGES:
 - Holes or shot-holes (present/absent)
 - Raised or blistered areas (present/absent)
 
-IMAGE QUALITY:
-- Focus (sharp/slightly blurred/blurry)
-- Lighting (well-lit/overexposed/underexposed)
-- Leaf coverage (full leaf/partial/close-up of lesion only)
-
 IMPORTANT — for pale or low-contrast lesions:
 Distinguish carefully between:
 (a) DRY pale lesions — center appears bleached, papery, or chalky. Tissue feels dry. Edges are defined. This is NOT water-soaked.
 (b) WET pale lesions — center appears translucent when held to light, greasy or glass-like texture, margins fade into healthy tissue. This IS water-soaked.
-Do not describe a lesion as water-soaked unless translucency or greasiness is clearly visible. When in doubt, describe as dry-pale, not water-soaked.
+Do not describe a lesion as water-soaked unless translucency or greasiness is clearly visible.`,
+
+    Stem: `CANKER AND BARK DAMAGE:
+- Canker presence (sunken/raised, discolored bark area vs healthy)
+- Size and shape of canker (circular, elongated, irregular)
+- Bark texture at affected site (cracked, peeling, water-soaked, dry)
+- Girdling extent (partial one side / complete around stem)
+
+EXUDATE AND DISCHARGE:
+- Gummy exudate (amber/dark, fresh/dried/crystallised)
+- Resinous discharge (color, quantity)
+- Bacterial ooze (slimy, watery, presence/absence)
+- No exudate visible
+
+DISCOLORATION:
+- Pattern (one side only / all around / from wound site)
+- Color of affected bark (brown/black/dark/orange/yellowed)
+- Extent above and below canker zone
+
+ENTRY WOUNDS:
+- Insect boring holes visible (diameter, frass present/absent)
+- Mechanical damage visible
+- Pruning wound infection (present/absent)
+- Clean stem with no visible entry point
+
+VASCULAR / INTERNAL:
+- If cross-section visible: vascular discoloration (brown streaking vs healthy white)
+- Pith condition (hollow/discolored/normal)`,
+
+    Fruit: `SURFACE SYMPTOMS:
+- Lesion type (sunken spots / raised pustules / discolored patches / surface mold)
+- Lesion size and color (brown/black/orange/white, mm range)
+- Margin character (defined/diffuse/water-soaked/halo)
+- Fungal sporulation visible (color: pink/gray/black/white, powdery/fluffy)
+- Bacterial ooze from surface (present/absent, color)
+
+STRUCTURAL DAMAGE:
+- Cracking or splitting (radial/irregular/none)
+- Mummification (shriveled/hard/none)
+- Insect entry holes (present/absent, frass)
+- Mechanical damage vs disease origin
+
+INTERNAL INDICATORS (if visible):
+- Rot visible at surface-interior interface (soft/dry/watery)
+- Color change in flesh near surface
+- Mycelial threads internal (visible/not visible)
+
+STAGE AT DAMAGE:
+- Fruit development stage (immature/mature/post-harvest)
+- % of surface affected (estimate: <10%, 10-30%, >30%)
+- Single spot vs multiple coalescing spots`,
+
+    Flower: `PETAL CONDITION:
+- Discoloration pattern (tip/base/whole petal, color: brown/black/white/purple)
+- Necrosis extent (tip burn / whole petal / central disk only)
+- Water-soaking (translucent soggy petals, present/absent)
+
+ATTACHMENT AND DROP:
+- Flowers staying attached or dropping prematurely
+- Drop stage (bud / open flower / post-pollination)
+- Pedicel condition (healthy/discolored/wilted)
+
+FUNGAL / PATHOGEN STRUCTURES:
+- Gray fuzzy mold on petals (Botrytis indicator)
+- Powdery coating on petals
+- Dark spots or acervuli on petals
+- Bacterial ooze on flower tissue
+
+INSECT PRESENCE:
+- Visible thrips (tiny elongated insects in flowers)
+- Feeding damage (silvering, distortion of petals)
+- Pollen beetle or other insect damage
+
+DEVELOPMENTAL ABNORMALITIES:
+- Distorted or misshapen flowers
+- Blasting (buds die before opening)
+- Abnormal petal color from base`,
+
+    Root: `COLOR AND APPEARANCE:
+- Healthy root color (white/cream expected, actual color observed)
+- Discoloration pattern (brown/black/dark, partial vs whole root)
+- Extent of affected roots vs healthy roots visible
+
+ROT TYPE:
+- Soft rot (waterlogged, mushy, foul smell indicators)
+- Dry rot (shriveled, firm, brown or black)
+- Crown rot vs fine root rot
+- Root tip dieback vs whole root involved
+
+SURFACE STRUCTURES:
+- Mycelial growth on root surface (white cottony / dark strands / rhizomorphs)
+- Nematode galls or knots (spherical swellings, present/absent, count estimate)
+- Lesions or necrotic patches on root surface
+
+STRUCTURAL INTEGRITY:
+- Root cortex slipping off central stele (indicates Pythium/Phytophthora)
+- Root fragility (breaks easily / firm and intact)
+- Branching roots affected vs main roots`,
+  };
+
+  const targets = PART_TARGETS[part] ?? PART_TARGETS["Leaf"];
+
+  return `You are a precision agricultural pathology imaging system. Your only task is visual observation of the submitted ${partUpper} photograph(s).
+
+Examine the image carefully. Describe ONLY what you can directly see. Do not name any disease. Do not provide any diagnosis. Do not suggest treatments. Do not infer causes.
+
+OBSERVATION TARGETS FOR ${partUpper}:
+
+${targets}
+
+IMAGE QUALITY:
+- Focus (sharp/slightly blurred/blurry)
+- Lighting (well-lit/overexposed/underexposed)
+- Coverage (full view / partial / close-up of affected area only)
 
 Crop being examined: ${crop}
+Plant part: ${partUpper}
 
 Write your observations as a structured plain-text report. Be precise and factual. No diagnosis. No disease names. Only what you can see.`;
+}
 
+async function observePart(
+  apiKey: string,
+  imageB64s: string[],
+  crop: string,
+  part: string,
+): Promise<string> {
+  const systemPrompt = buildPartObservationPrompt(crop, part);
   const imageBlocks = imageB64s.map((b64) => ({
     type: "image",
     source: { type: "base64", media_type: getMediaType(b64), data: b64 },
@@ -336,51 +488,125 @@ Write your observations as a structured plain-text report. Be precise and factua
   const textBlock = {
     type: "text",
     text: imageB64s.length > 1
-      ? `Examine all ${imageB64s.length} leaf photographs of this ${crop} crop. Describe only what you see. No diagnosis.`
-      : `Examine this ${crop} leaf photograph. Describe only what you see. No diagnosis.`,
+      ? `Examine all ${imageB64s.length} ${part.toLowerCase()} photographs of this ${crop} crop. Describe only what you see. No diagnosis.`
+      : `Examine this ${crop} ${part.toLowerCase()} photograph. Describe only what you see. No diagnosis.`,
   };
 
   const raw = await callClaude(apiKey, {
     model: "claude-sonnet-4-20250514",
-    max_tokens: 500,
+    max_tokens: 600,
     system: systemPrompt,
     messages: [{ role: "user", content: [...imageBlocks, textBlock] }],
   }, 40000);
 
   if (!raw) {
-    console.error("observeLeaf: callClaude returned null — API error or timeout");
-    throw new Error("Observation step failed.");
+    console.error(`observePart [${part}]: callClaude returned null`);
+    throw new Error(`Observation step failed for ${part}.`);
   }
   return raw;
 }
 
-// ── Action 2: diagnoseFromObservations ─────────────────────
-// Text-only call. No image. Full 6-section protocol + pomegranate keys.
+// ─────────────────────────────────────────────────────────────
+//  diagnoseFromObservations — text-only, full protocol
+// ─────────────────────────────────────────────────────────────
 async function diagnoseFromObservations(
   apiKey: string,
-  observationText: string,
+  observationsByPart: Array<{ part: string; text: string }>,
   crop: string,
   location: string | null,
   soilType: string | null,
+  growthStage: string | null,
+  symptomDuration: string | null,
+  spreadExtent: string | null,
+  recentActivity: string[],
   weatherData: { temp: number; humidity: number; description: string; rainfall: number } | null,
+  weatherHistory: { avgTemp: number; totalRainfall: number } | null,
+  districtHistory: Array<{ disease: string; count: number }>,
 ): Promise<Record<string, unknown> | null> {
+
+  // Build the observations block
+  const observationsBlock = observationsByPart
+    .map(({ part, text }) => `${part.toUpperCase()} OBSERVATIONS:\n${text}`)
+    .join("\n\n─────────────────────────────────────────\n\n");
+
+  // Build permitted disease list for submitted parts
+  const submittedParts = [...new Set(observationsByPart.map((o) => o.part))];
+  const diseaseLines = submittedParts.map((part) => {
+    const diseases = getDiseaseList(crop, part);
+    return diseases.length > 0
+      ? `${part.toUpperCase()}: ${diseases.join(" | ")}`
+      : `${part.toUpperCase()}: [No registry data — use general agronomic knowledge for ${crop}]`;
+  });
+  const permittedDiseasesBlock = diseaseLines.length > 0
+    ? `PERMITTED DIAGNOSES FOR ${crop}:
+You MUST select primary from this list only. Output exactly as written. No variations.
+If no match is found: output "Unknown".
+
+${diseaseLines.join("\n")}`
+    : "";
+
+  // Build district history block
+  const districtBlock = districtHistory.length > 0
+    ? `District disease activity (last 30 days): ${districtHistory.map((d) => `${d.disease} (${d.count} reports)`).join(", ")}`
+    : "";
+
+  // Build weather block
+  const weatherBlock = [
+    weatherData
+      ? `Current weather: ${weatherData.temp}°C, humidity ${weatherData.humidity}%, ${weatherData.description}, rainfall ${weatherData.rainfall}mm last hour`
+      : "",
+    weatherHistory
+      ? `Weather 7-day avg: ${weatherHistory.avgTemp}°C, total rainfall ${weatherHistory.totalRainfall}mm`
+      : "",
+  ].filter(Boolean).join("\n");
+
   const systemPrompt = `You are the Truffaire Labs Diagnostic Engine — a precision agricultural pathology system. You do not guess. You do not default to common answers. You diagnose by evidence.
 
-You have received structured visual observations from a leaf image analysis step. Your job is to produce the most accurate, evidence-grounded diagnosis possible from those observations, combined with the provided agronomic context.
+You have received structured visual observations from one or more plant part image analysis steps. Your job is to produce the most accurate, evidence-grounded unified diagnosis from those observations and agronomic context.
+
+${permittedDiseasesBlock}
 
 ═══════════════════════════════════════════════════════════════
 SECTION 1 — VISUAL OBSERVATIONS (ALREADY COMPLETE)
 ═══════════════════════════════════════════════════════════════
 
-The following observations were extracted directly from the leaf photograph(s). Treat these as your Section 1 findings. Do not re-derive or contradict them.
+The following observations were extracted directly from the submitted photographs. Treat these as your Section 1 findings. Do not re-derive or contradict them.
 
-${observationText}
+${observationsBlock}
 
 ═══════════════════════════════════════════════════════════════
 SECTION 2 — CONTEXTUAL RISK ASSESSMENT
 ═══════════════════════════════════════════════════════════════
 
 Use the provided context to set disease probability weights BEFORE running differential diagnosis. Context does not diagnose — it modifies probability of candidate diseases.
+
+AGRONOMIC CONTEXT:
+- Crop: ${crop}
+${location       ? `- Farm Location: ${location}, India` : ""}
+${soilType       ? `- Soil Type: ${soilType}` : ""}
+${growthStage    ? `- Growth Stage: ${growthStage}` : ""}
+${symptomDuration ? `- Symptoms noticed: ${symptomDuration}` : ""}
+${spreadExtent   ? `- Plants affected: ${spreadExtent}` : ""}
+${recentActivity.length > 0 ? `- Recent farm activity: ${recentActivity.join(", ")}` : ""}
+${weatherBlock ? weatherBlock : ""}
+${districtBlock ? districtBlock : ""}
+
+GROWTH STAGE LOGIC:
+- Seedling: damping-off, root rots, bacterial wilts, nutrient toxicity elevated
+- Vegetative: leaf diseases, bacterial blights, aphid/mite vectors elevated
+- Flowering: Botrytis, flower drop diseases, thrips elevated
+- Fruiting: fruit rots, anthracnose, bacterial spot, physiological disorders elevated
+- Harvest Ready: post-harvest pathogens, secondary rots elevated
+
+SPREAD LOGIC:
+- 1-2 plants: isolated — abiotic, insect entry points, mechanical, or early infection
+- Part of field: moderate spread — soilborne or splash-dispersed pathogen
+- Spreading fast: rapid epidemic — bacterial, downy mildew, or systemic viral likely
+
+SYMPTOM DURATION LOGIC:
+- Just noticed: early stage — initial infection or acute stress
+- ~1 week: active progression — treatment window still open
+- 2+ weeks: advanced infection — secondary spread likely, severe damage possible
 
 WEATHER LOGIC (apply these rules):
 - Humidity > 80% + Temp 20-30C → Fungal pressure HIGH (Cercospora, Alternaria, Colletotrichum, Powdery mildew elevated)
@@ -389,11 +615,10 @@ WEATHER LOGIC (apply these rules):
 - Rainfall in last 24-48h → Splash-dispersed pathogens elevated (Colletotrichum, Cercospora, Bacterial)
 - Low temp (<15C) → Botrytis, Powdery mildew elevated
 
-SOIL LOGIC (apply these rules):
-- Red/Laterite → Low pH, iron-rich, low water retention. Micronutrient deficiency (Zinc, Boron) more likely. Fusarium elevated in poorly drained areas.
+SOIL LOGIC:
+- Red/Laterite → Low pH, iron-rich. Micronutrient deficiency (Zinc, Boron) more likely. Fusarium elevated in poorly drained areas.
 - Black/Vertisol → High water retention, alkaline. Pythium, Phytophthora, Bacterial diseases elevated in wet season.
 - Sandy/Loamy → Well-drained. Nematode damage more likely. Drought stress patterns possible.
-- Alluvial → Variable. Check for salinity symptoms if coastal location.
 - Clay → Waterlogging risk. Root rot pathogens elevated.
 
 SEASONAL LOGIC (Karnataka crop calendar):
@@ -413,43 +638,41 @@ Use this key to eliminate categories before naming specific diseases. A category
 FUNGAL (NECROTROPHIC) — Required markers:
 + Defined lesion margins (sharp or concentric rings)
 + Dry center texture (papery, cracked, or perforated)
-+ Sporulation structures often visible (powdery, pustules, acervuli, fruiting bodies, mycelium)
++ Sporulation structures often visible
 + Lesion color typically tan/brown/gray/black
 - ABSENT: bacterial ooze, water-soaking in fresh lesions, translucency, vein-bounded pattern
 
 FUNGAL (BIOTROPHIC) — Required markers:
-+ Powdery white/gray coating on leaf surface (Powdery mildew)
-+ OR yellow upper surface + gray/purple fuzz on lower surface (Downy mildew)
++ Powdery white/gray coating (Powdery mildew)
++ OR yellow upper surface + gray/purple fuzz on lower (Downy mildew)
 + OR orange/brown/yellow pustules (Rust)
-+ Leaf remains green and turgid initially
 - ABSENT: dry necrotic spots as primary symptom
 
 BACTERIAL — Required markers:
 + Water-soaked lesions (translucent when held to light)
-+ Angular lesions bounded by leaf veins
++ Angular lesions bounded by veins
 + Yellow halo around lesions common
-+ Bacterial ooze or exudate in humid conditions
-+ Lesion margins diffuse or greasy
-- ABSENT: dry papery centers, sporulation structures, powdery coatings, concentric rings
++ Bacterial ooze in humid conditions
+- ABSENT: dry papery centers, sporulation, powdery coatings, concentric rings
 
 VIRAL — Required markers:
-+ Mosaic pattern (irregular green/yellow/light patches)
++ Mosaic pattern (irregular green/yellow patches)
 + OR leaf distortion, curling, stunting
-+ OR ring spots (circular chlorotic rings without necrosis)
-+ Systemic — affects whole plant, not isolated lesions
++ OR ring spots
++ Systemic — affects whole plant
 - ABSENT: discrete necrotic lesions, sporulation, ooze
 
 ABIOTIC / NUTRITIONAL — Required markers:
-+ Interveinal chlorosis (yellowing between veins, veins stay green)
++ Interveinal chlorosis
 + OR tip and margin burn without lesion structure
 + OR uniform bleaching/bronzing
 + Symmetrical pattern across leaf
-- ABSENT: discrete lesions with defined margins, sporulation, pathogen structures
+- ABSENT: discrete lesions with defined margins, sporulation
 
 PEST DAMAGE — Required markers:
-+ Shot-holes (clean circular holes in leaf)
-+ OR stippling (tiny pale dots across surface — mites)
-+ OR skeletonized areas (feeding tracks)
++ Shot-holes (clean circular holes)
++ OR stippling (tiny pale dots — mites)
++ OR skeletonized areas
 + OR distortion without chlorosis
 - ABSENT: lesions with defined color zones, sporulation
 
@@ -458,8 +681,8 @@ STEP 3B — MATCH SPECIFIC DISEASE WITHIN CATEGORY
 SCORING RULES:
 - Each observation that matches a disease's known symptom profile: +2 points
 - Each observation that directly contradicts a disease's known profile: -3 points
-- Context risk elevation for this disease: +1 point
-- Context risk reduction for this disease: -1 point
+- Context risk elevation: +1 point per risk factor
+- Context risk reduction: -1 point
 - Surface structures pathognomonic for this disease: +4 points
 
 The disease with the highest score = Primary diagnosis
@@ -469,87 +692,44 @@ Contributing factor = environmental/stress factor, not a disease
 POMEGRANATE-SPECIFIC DIFFERENTIAL KEY:
 When crop is pomegranate, apply this key within Step 3B:
 
-Bacterial Blight (Xanthomonas axonopodis pv. punicae):
-+ Water-soaked dark-brown angular lesions bounded by veins
-+ Yellow halo common around lesions
-+ Bacterial ooze in humid conditions
-+ Dark streaks on young shoots
-High risk: Monsoon, high humidity, overhead irrigation, Black/Vertisol soils
+Bacterial Blight (Xanthomonas axonopodis pv. punicae): Water-soaked dark-brown angular lesions + yellow halo + ooze in humid conditions + dark streaks on young shoots. High risk: Monsoon, high humidity, overhead irrigation.
 
-Alternaria Leaf Spot (Alternaria alternata):
-+ Circular to irregular brown spots, 2-8mm
-+ Concentric rings or zonate pattern
-+ Dark sooty black sporulation visible on lesion center
-+ Spots coalesce, causing defoliation
-High risk: Humid post-monsoon, moderate temps 22-28C
+Alternaria Leaf Spot (Alternaria alternata): Circular-irregular brown spots 2-8mm + concentric rings + dark sooty sporulation + coalescence. High risk: Humid post-monsoon, 22-28°C.
 
-Cercospora Leaf Spot (Cercospora punicae):
-+ Small circular spots, 1-4mm, brown center, distinct yellow halo
-+ No concentric rings (key differentiator from Alternaria)
-+ Gray-white powdery sporulation on lower surface
-+ Random scatter pattern
-High risk: Monsoon, humid conditions
+Cercospora Leaf Spot (Cercospora punicae): Small circular spots 1-4mm + distinct yellow halo + no concentric rings + gray-white powdery lower surface sporulation. High risk: Monsoon, humid.
 
-Anthracnose (Colletotrichum gloeosporioides):
-+ Irregular brown to black lesions, often at tip and margins
-+ Pink-salmon spore masses (acervuli) visible in moist conditions
-+ Water-soaked initially, then dry papery necrosis
-+ Sunken lesions on older tissue
-High risk: Post-monsoon, warm humid weather, overhead irrigation
+Anthracnose (Colletotrichum gloeosporioides): Irregular brown-black lesions at tip/margins + pink-salmon spore masses in moist conditions + water-soaked then dry necrosis. High risk: Post-monsoon.
 
-Powdery Mildew (Podosphaera xanthii):
-+ White powdery coating on leaf surface
-+ Leaves remain green and turgid initially
-+ Young leaves and shoots primarily affected
-+ No discrete necrotic lesions as primary symptom
-High risk: March-May dry season, humidity <60%, temp 25-30C
+Powdery Mildew (Podosphaera xanthii): White powdery coating + green turgid leaves + young leaves primarily. High risk: March-May dry season.
 
-Phytophthora Blight (Phytophthora sp.):
-+ Dark water-soaked patches starting at margins
-+ Rapid spread, brown-black necrosis
-+ White cottony mycelium on lower surface in high humidity
-+ Associated wilting of shoot tips
-High risk: Waterlogged soils, monsoon, Black/Clay soils
+Phytophthora Blight: Dark water-soaked patches at margins + rapid spread + white cottony mycelium lower surface. High risk: Waterlogged soils, monsoon.
 
-Leaf Scorch / Abiotic Tip Burn:
-+ Brown tip and margin burn with sharp boundary to healthy tissue
-+ No discrete lesion morphology or sporulation structures
-+ Symmetrical across leaf
-Associated with: heat stress, salt injury, drought, Red/Laterite soils
+Leaf Scorch / Abiotic Tip Burn: Brown tip/margin burn + sharp boundary + no sporulation + symmetrical. Associated with heat stress, salt injury, drought.
 
 STEP 3C — CONFIDENCE CALIBRATION
 
-High confidence: Primary score significantly higher than all others AND key morphological markers clearly visible in observations
-Moderate confidence: Primary score moderately higher than second candidate OR some markers ambiguous
-Low confidence: Two or more diseases score similarly OR critical diagnostic markers not described in observations
+High confidence: Primary score significantly higher than all others AND key morphological markers clearly visible
+Moderate confidence: Primary score moderately higher OR some markers ambiguous
+Low confidence: Two or more diseases score similarly OR critical diagnostic markers not present
 
-CRITICAL RULE: If bacterial markers (ooze, angular, water-soaked, translucent) are NOT in the observations — bacterial cannot be primary diagnosis.
-CRITICAL RULE: If fungal sporulation structures (powder, pustules, acervuli, mycelium) ARE in observations — fungal must be primary.
-CRITICAL RULE: Never output High confidence when markers are ambiguous. An honest Moderate protects the farmer.
+CRITICAL RULE: If bacterial markers (ooze, angular, water-soaked) are NOT in observations — bacterial cannot be primary.
+CRITICAL RULE: If fungal sporulation (powder, pustules, acervuli, mycelium) IS in observations — fungal must be primary.
+CRITICAL RULE: Never output High confidence when markers are ambiguous.
 
 ═══════════════════════════════════════════════════════════════
 SECTION 4 — OBSERVATION INTEGRITY RULES
 ═══════════════════════════════════════════════════════════════
 
-RULE 1 — OBSERVATIONS ARRAY MUST REFLECT SECTION 1
-The observations[] array in your JSON output must reflect only what was described in the Section 1 observations above. Do not add symptoms that were not observed. Do not fabricate evidence.
-
-RULE 2 — SECONDARY DIAGNOSIS REQUIRES EVIDENCE
-Secondary condition is only populated if a second distinct set of symptoms appears in the Section 1 observations OR context strongly elevates co-infection risk with some supporting markers present. If no evidence — return null.
-
-RULE 3 — CONFIDENCE SUM
-primaryConfidence + secondaryConfidence + contributingConfidence = 100
-If secondary is null — split between primary and contributing only.
-If both secondary and contributing are null — primaryConfidence = 100.
-
-RULE 4 — ECONOMIC IMPACT MUST BE DISEASE-SPECIFIC AND CROP-SPECIFIC
-Use actual yield impact ranges for this specific disease on this specific crop.
+RULE 1 — OUTPUT observations[] MUST REFLECT SECTION 1 ONLY. Do not fabricate.
+RULE 2 — SECONDARY requires distinct evidence or context-elevated co-infection.
+RULE 3 — primaryConfidence + secondaryConfidence + contributingConfidence = 100.
+RULE 4 — ECONOMIC IMPACT must be disease-specific and crop-specific.
+RULE 5 — If multiple plant parts submitted, produce plantPartDiagnoses[] with one entry per part.
 
 ═══════════════════════════════════════════════════════════════
 SECTION 5 — TREATMENT PROTOCOL RULES
 ═══════════════════════════════════════════════════════════════
 
-RULE 1 — MATCH CHEMISTRY TO PATHOGEN
 Bacterial → copper-based bactericide or streptomycin-based
 Fungal necrotrophic → Mancozeb, Chlorothalonil (contact) or Propiconazole, Tebuconazole, Azoxystrobin (systemic)
 Powdery mildew → sulfur-based or DMI fungicides. NOT mancozeb.
@@ -557,58 +737,57 @@ Rust → triazole fungicides, NOT copper
 Viral → no curative treatment, vector control and removal only
 Nutritional → soil amendment, foliar micronutrient correction
 
-RULE 2 — NEVER PRESCRIBE COPPER FOR FUNGAL PRIMARY UNLESS SECONDARY BACTERIAL IS CONFIRMED
-
-RULE 3 — DOSAGE MUST BE SPECIFIC
-Specify: product name, active ingredient, concentration, dose per liter, application method, timing, repeat interval.
-
-RULE 4 — TREATMENT COST IN INR
-perAcre must reflect realistic Karnataka market price for the specified product and dose.
+RULE: NEVER PRESCRIBE COPPER FOR FUNGAL PRIMARY UNLESS SECONDARY BACTERIAL IS CONFIRMED.
+RULE: Specify product name, active ingredient, concentration, dose per liter, timing, repeat interval.
+RULE: treatmentCost perAcre must reflect realistic Karnataka market price.
 
 ═══════════════════════════════════════════════════════════════
-SECTION 6 — FINAL OUTPUT INSTRUCTIONS
+SECTION 6 — HEALTH SCORE AND PRIMARY FINDING
 ═══════════════════════════════════════════════════════════════
 
-INPUTS FOR THIS DIAGNOSIS:
-- Crop: ${crop}
-- All field values MUST be in ENGLISH only. This is mandatory.
-- Never mention AI, Claude, or any technology provider.
-${location ? `- Farm Location: ${location}, Karnataka, India` : ""}
-${soilType ? `- Soil Type: ${soilType}` : ""}
-${weatherData ? `- Current Weather: Temperature ${weatherData.temp}°C, Humidity ${weatherData.humidity}%, Conditions: ${weatherData.description}, Rainfall last hour: ${weatherData.rainfall}mm` : ""}
+healthScore: integer 0-100.
+100 = fully healthy. Deduct based on severity:
+- Severe = -25 points per affected part
+- Moderate = -15 points per affected part
+- Mild = -8 points per affected part
+Multiple parts compound. Minimum score: 5.
 
-Complete Sections 2 and 3 in your internal reasoning using the observations from Section 1 above. Then output ONLY the following JSON. No preamble. No explanation. No markdown. Raw JSON only.
+primaryFinding: One plain-language sentence. The single most important action the farmer must take today. No jargon. No Latin names. Specific and direct.
+Example: "Spray [product] within 48 hours to stop the spread to the rest of the crop."
+NOT: "Consider appropriate fungicide application based on pathogen identification."
+
+═══════════════════════════════════════════════════════════════
+SECTION 7 — FINAL OUTPUT
+═══════════════════════════════════════════════════════════════
+
+All field values MUST be in ENGLISH only. Never mention AI, Claude, or any technology provider.
+
+Output ONLY the following JSON. No preamble. No explanation. No markdown. Raw JSON only.
 
 {
-  "primary": "specific disease name in English",
-  "secondary": "specific disease name or null",
+  "primary": "specific disease name",
+  "secondary": "disease name or null",
   "contributing": "environmental or stress factor or null",
   "severity": "Mild|Moderate|Severe",
   "confidence": "High|Moderate|Low",
   "primaryConfidence": <integer>,
   "secondaryConfidence": <integer or null>,
   "contributingConfidence": <integer or null>,
-  "urgency": "specific actionable timeframe e.g. Act within 3-5 days",
+  "urgency": "specific actionable timeframe",
   "scientificName": "Latin binomial of crop species",
+  "healthScore": <integer 5-100>,
+  "primaryFinding": "one plain-language sentence — most important action today",
   "economicImpact": {
-    "yieldLossPercent": "disease-specific and crop-specific range",
-    "description": "one sentence on specific financial consequence if untreated"
+    "yieldLossPercent": "crop-specific and disease-specific range",
+    "description": "one sentence on financial consequence if untreated"
   },
   "treatmentCost": {
-    "perAcre": "realistic INR range based on specified product and dose",
+    "perAcre": "realistic INR range",
     "currency": "INR",
     "basis": "one-time application|per spray cycle"
   },
-  "observations": [
-    "observation 1 — from Section 1 findings",
-    "observation 2 — from Section 1 findings",
-    "observation 3 — from Section 1 findings"
-  ],
-  "causes": [
-    "primary pathogen or cause with scientific name if applicable",
-    "predisposing environmental factor",
-    "agronomic practice contributing to outbreak"
-  ],
+  "observations": ["from Section 1 only", "..."],
+  "causes": ["primary pathogen with scientific name", "predisposing factor", "agronomic contributor"],
   "treatment": [
     {
       "priority": "Immediate|Short-term|Medium-term",
@@ -617,15 +796,8 @@ Complete Sections 2 and 3 in your internal reasoning using the observations from
       "method": "exact application instructions with dose, timing, coverage"
     }
   ],
-  "prevention": [
-    "specific prevention measure 1",
-    "specific prevention measure 2",
-    "specific prevention measure 3"
-  ],
-  "labTests": [
-    "specific test 1 with purpose",
-    "specific test 2 with purpose"
-  ],
+  "prevention": ["prevention measure 1", "prevention measure 2", "prevention measure 3"],
+  "labTests": ["specific test 1", "specific test 2"],
   "seasonalCalendar": [
     { "period": "season name", "action": "specific action for this crop and disease" }
   ],
@@ -636,13 +808,29 @@ Complete Sections 2 and 3 in your internal reasoning using the observations from
     "lowerSurface": "none|mild|moderate|severe",
     "midrib": "none|mild|moderate|severe",
     "base": "none|mild|moderate|severe",
-    "description": "one sentence describing exact symptom location from Section 1 observations"
-  }
+    "description": "one sentence describing symptom location from Section 1"
+  },
+  "plantPartDiagnoses": [
+    {
+      "part": "Leaf|Stem|Fruit|Flower|Root",
+      "primary": "disease or condition specific to this part",
+      "severity": "Mild|Moderate|Severe",
+      "observations": ["key observation 1", "key observation 2"],
+      "treatment": [
+        {
+          "priority": "Immediate|Short-term",
+          "treatment": "treatment name",
+          "product": "product with active ingredient",
+          "method": "application instructions"
+        }
+      ]
+    }
+  ]
 }`;
 
   const raw = await callClaude(apiKey, {
     model: "claude-sonnet-4-20250514",
-    max_tokens: 2500,
+    max_tokens: 3000,
     system: systemPrompt,
     messages: [{ role: "user", content: "Complete the diagnosis using the Section 1 observations. Return JSON only." }],
   }, 70000);
@@ -660,21 +848,82 @@ Complete Sections 2 and 3 in your internal reasoning using the observations from
   return parsed;
 }
 
-// ── Main action ────────────────────────────────────────────────
-// Credits are always deducted before the engine runs.
-// If the engine or persistence step fails, the deducted credit is restored.
+// ─────────────────────────────────────────────────────────────
+//  Weather helpers
+// ─────────────────────────────────────────────────────────────
+type WeatherCurrent = { temp: number; humidity: number; description: string; rainfall: number };
+type WeatherHistory = { avgTemp: number; totalRainfall: number };
+
+async function fetchCurrentWeather(
+  location: string,
+  weatherKey: string,
+): Promise<WeatherCurrent | null> {
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)},IN&appid=${weatherKey}&units=metric`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const wd = await res.json();
+    return {
+      temp:        wd.main?.temp           ?? 0,
+      humidity:    wd.main?.humidity       ?? 0,
+      description: wd.weather?.[0]?.description ?? "unknown",
+      rainfall:    wd.rain?.["1h"]         ?? 0,
+    };
+  } catch { return null; }
+}
+
+async function fetchWeatherHistory(
+  location: string,
+  weatherKey: string,
+): Promise<WeatherHistory | null> {
+  // Geocode city → lat/lon, then fetch 7-day forecast as proxy
+  try {
+    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)},IN&limit=1&appid=${weatherKey}`;
+    const geoRes = await fetch(geoUrl);
+    if (!geoRes.ok) return null;
+    const geoData = await geoRes.json();
+    if (!Array.isArray(geoData) || geoData.length === 0) return null;
+    const { lat, lon } = geoData[0];
+
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherKey}&units=metric&cnt=56`; // 7 days * 8 intervals
+    const forecastRes = await fetch(forecastUrl);
+    if (!forecastRes.ok) return null;
+    const forecastData = await forecastRes.json();
+    const list: Array<{ main: { temp: number }; rain?: { "3h"?: number } }> =
+      forecastData.list ?? [];
+    if (list.length === 0) return null;
+
+    const avgTemp = list.reduce((sum, item) => sum + (item.main?.temp ?? 0), 0) / list.length;
+    const totalRainfall = list.reduce((sum, item) => sum + (item.rain?.["3h"] ?? 0), 0);
+    return {
+      avgTemp:       Math.round(avgTemp * 10) / 10,
+      totalRainfall: Math.round(totalRainfall * 10) / 10,
+    };
+  } catch { return null; }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Main action
+// ─────────────────────────────────────────────────────────────
 export const runDiagnosis = action({
   args: {
-    clerkId:   v.string(),
-    crop:      v.string(),
-    location:  v.optional(v.string()),
-    soilType:  v.optional(v.string()),
-    imageUrl:  v.string(),
-    imageB64s: v.array(v.string()),
+    clerkId:         v.string(),
+    crop:            v.string(),
+    location:        v.optional(v.string()),
+    soilType:        v.optional(v.string()),
+    imageUrl:        v.string(),
+    imageB64s:       v.array(v.string()),
+    // new in Priority 3 — parallel arrays, imageB64s[i] ↔ plantParts[i]
+    plantParts:      v.optional(v.array(v.string())),
+    growthStage:     v.optional(v.string()),
+    symptomDuration: v.optional(v.string()),
+    spreadExtent:    v.optional(v.string()),
+    recentActivity:  v.optional(v.array(v.string())),
   },
   handler: async (
     ctx,
-    { clerkId, crop, location, soilType, imageUrl, imageB64s }
+    { clerkId, crop, location, soilType, imageUrl, imageB64s,
+      plantParts, growthStage, symptomDuration, spreadExtent, recentActivity }
   ): Promise<{ reportId: string; diagnosis: unknown }> => {
     let creditDeducted = false;
     const reportId = generateReportId();
@@ -696,71 +945,113 @@ export const runDiagnosis = action({
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
-      // ── Optional: fetch weather for farm location ──────────────
-      type WeatherData = { temp: number; humidity: number; description: string; rainfall: number };
-      let weatherData: WeatherData | null = null;
-      if (location) {
-        try {
-          const weatherKey = process.env.OPENWEATHER_API_KEY;
-          if (weatherKey) {
-            const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)},IN&appid=${weatherKey}&units=metric`;
-            const weatherRes = await fetch(weatherUrl);
-            if (weatherRes.ok) {
-              const wd = await weatherRes.json();
-              weatherData = {
-                temp:        wd.main?.temp           ?? 0,
-                humidity:    wd.main?.humidity       ?? 0,
-                description: wd.weather?.[0]?.description ?? "unknown",
-                rainfall:    wd.rain?.["1h"]         ?? 0,
-              };
-              console.log("Weather fetched:", weatherData);
-            }
-          }
-        } catch (weatherErr) {
-          console.error("Weather fetch failed (non-blocking):", weatherErr);
-        }
+      // ── Group images by plant part ─────────────────────────────
+      // plantParts[i] corresponds to imageB64s[i]; default = "Leaf"
+      const parts = imageB64s.map((_, i) =>
+        (plantParts?.[i] ?? "Leaf")
+      );
+
+      const partGroups: Record<string, string[]> = {};
+      for (let i = 0; i < imageB64s.length; i++) {
+        const part = parts[i];
+        if (!partGroups[part]) partGroups[part] = [];
+        partGroups[part].push(imageB64s[i]);
       }
+      const uniqueParts = Object.keys(partGroups);
+      console.log(`Parts submitted: ${uniqueParts.join(", ")} (${imageB64s.length} images total)`);
 
-      // ── STEP 1: Visual observation (image → text) ──────────────
-      const observationText = await observeLeaf(apiKey, imageB64s, crop);
-      console.log("Observation:", observationText?.slice(0, 300));
+      // ── Fetch weather (parallel with observations) ─────────────
+      const weatherKey = process.env.OPENWEATHER_API_KEY;
+      const weatherPromises: [
+        Promise<WeatherCurrent | null>,
+        Promise<WeatherHistory | null>,
+      ] = location && weatherKey
+        ? [
+            fetchCurrentWeather(location, weatherKey),
+            fetchWeatherHistory(location, weatherKey),
+          ]
+        : [
+            Promise.resolve(null),
+            Promise.resolve(null),
+          ];
 
-      // ── STEP 2: Diagnosis from observations (text → JSON) ──────
+      // ── Fetch district disease history ─────────────────────────
+      const districtHistoryPromise = location
+        ? ctx.runQuery(api.diagnose.getDistrictHistory, { district: location.split(",")[0].trim() })
+        : Promise.resolve([]);
 
+      // ── STEP 1: Parallel visual observation per part ───────────
+      const observationPromises = uniqueParts.map((part) =>
+        observePart(apiKey, partGroups[part], crop, part)
+          .then((text) => ({ part, text }))
+          .catch((err) => {
+            console.error(`observePart [${part}] failed:`, err);
+            throw new Error(`Observation step failed for ${part}.`);
+          })
+      );
+
+      // Run observations, weather, and district history all in parallel
+      const [observationResults, weatherCurrent, weatherHistory, districtHistory] =
+        await Promise.all([
+          Promise.all(observationPromises),
+          weatherPromises[0],
+          weatherPromises[1],
+          districtHistoryPromise,
+        ]);
+
+      console.log(`Observations complete: ${observationResults.map((o) => o.part).join(", ")}`);
+      if (weatherCurrent) console.log("Weather:", weatherCurrent);
+      if (districtHistory.length > 0) console.log("District history:", districtHistory);
+
+      // ── STEP 2: Single unified diagnosis ──────────────────────
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let diagnosis: any = toStoredDiagnosis(fallbackDiagnosis(crop, "analysis unavailable"), crop);
+      let diagnosis: any = toStoredDiagnosis(
+        fallbackDiagnosis(crop, "analysis unavailable"),
+        crop,
+      );
 
       try {
         const parsedDiag = await diagnoseFromObservations(
           apiKey,
-          observationText,
+          observationResults,
           crop,
           location ?? null,
           soilType ?? null,
-          weatherData,
+          growthStage ?? null,
+          symptomDuration ?? null,
+          spreadExtent ?? null,
+          recentActivity ?? [],
+          weatherCurrent,
+          weatherHistory,
+          districtHistory as Array<{ disease: string; count: number }>,
         );
 
         if (parsedDiag) {
           const base = toStoredDiagnosis(normalizeDiagnosis(parsedDiag, crop), crop);
-          diagnosis = weatherData ? { ...base, weatherData } : base;
+          diagnosis = weatherCurrent ? { ...base, weatherData: weatherCurrent } : base;
         } else {
           console.error("Diagnosis: returned null — using fallback");
-          const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, "JSON parse failed"), crop);
-          diagnosis = weatherData ? { ...fbBase, weatherData } : fbBase;
+          const fb = toStoredDiagnosis(fallbackDiagnosis(crop, "JSON parse failed"), crop);
+          diagnosis = weatherCurrent ? { ...fb, weatherData: weatherCurrent } : fb;
         }
-      } catch (error) {
-        console.error("Diagnosis engine error:", error);
-        const reason = error instanceof Error ? error.message : "Unknown failure";
-        const fbBase = toStoredDiagnosis(fallbackDiagnosis(crop, reason), crop);
-        diagnosis = weatherData ? { ...fbBase, weatherData } : fbBase;
+      } catch (err) {
+        console.error("Diagnosis engine error:", err);
+        const reason = err instanceof Error ? err.message : "Unknown failure";
+        const fb = toStoredDiagnosis(fallbackDiagnosis(crop, reason), crop);
+        diagnosis = weatherCurrent ? { ...fb, weatherData: weatherCurrent } : fb;
       }
 
       await ctx.runMutation(internal.diagnose.saveReport, {
         reportId,
         userId: clerkId,
         crop,
-        ...(location ? { location } : {}),
-        ...(soilType ? { soilType } : {}),
+        ...(location        ? { location }        : {}),
+        ...(soilType        ? { soilType }         : {}),
+        ...(uniqueParts.length > 0 ? { plantParts: uniqueParts } : {}),
+        ...(growthStage     ? { growthStage }      : {}),
+        ...(symptomDuration ? { symptomDuration }  : {}),
+        ...(spreadExtent    ? { spreadExtent }     : {}),
+        ...(recentActivity && recentActivity.length > 0 ? { recentActivity } : {}),
         imageUrl,
         diagnosis,
       });
@@ -772,8 +1063,8 @@ export const runDiagnosis = action({
       if (creditDeducted) {
         try {
           await ctx.runMutation(api.users.refundCredit, { clerkId });
-        } catch (refundError) {
-          console.error("Refund error:", refundError);
+        } catch (refundErr) {
+          console.error("Refund error:", refundErr);
         }
       }
 
@@ -781,7 +1072,6 @@ export const runDiagnosis = action({
         fallbackDiagnosis(crop, error instanceof Error ? error.message : "Unknown failure"),
         crop,
       );
-
       try {
         await ctx.runMutation(internal.diagnose.saveReport, {
           reportId, userId: clerkId, crop, imageUrl, diagnosis,

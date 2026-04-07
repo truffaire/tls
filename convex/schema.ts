@@ -9,18 +9,25 @@ export default defineSchema({
     name:      v.string(),
     credits:   v.number(),
     createdAt: v.number(),
+    farmSize:  v.optional(v.number()),  // acres
   }).index("by_clerk", ["clerkId"]),
 
   // ── REPORTS ────────────────────────────────────────────────
   reports: defineTable({
-    reportId:  v.string(),              // TLS-2026-KA-XXXXXX
-    userId:    v.string(),              // clerkId
-    crop:      v.string(),
-    location:  v.optional(v.string()), // farm location e.g. "Chitradurga, Karnataka"
-    soilType:  v.optional(v.string()), // soil type e.g. "Red / Laterite"
-    imageUrl:  v.string(),
-    diagnosis: v.any(),                // DiagnosisResult JSON
-    createdAt: v.number(),
+    reportId:        v.string(),                      // ARCORA-2026-KA-XXXXXX
+    userId:          v.string(),                      // clerkId
+    crop:            v.string(),
+    location:        v.optional(v.string()),          // e.g. "Chitradurga, Karnataka"
+    soilType:        v.optional(v.string()),          // e.g. "Red / Laterite"
+    imageUrl:        v.string(),
+    diagnosis:       v.any(),                         // DiagnosisResult JSON
+    createdAt:       v.number(),
+    // ── Extended fields (Priority 3) ──
+    plantParts:      v.optional(v.array(v.string())), // ["Leaf","Stem","Fruit"...]
+    growthStage:     v.optional(v.string()),
+    symptomDuration: v.optional(v.string()),
+    spreadExtent:    v.optional(v.string()),
+    recentActivity:  v.optional(v.array(v.string())),
   })
     .index("by_user",     ["userId"])
     .index("by_reportId", ["reportId"]),

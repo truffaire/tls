@@ -13,7 +13,7 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <ClerkProvider
     publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
-    clerkJSUrl="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    clerkJSVersion="5.125.7"
     afterSignInUrl="/dashboard"
     afterSignUpUrl="/dashboard"
   >

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import Navbar from "@/components/Navbar";
-import { CREDIT_PACKS } from "@/lib/constants";
+import { CREDIT_PACKS, ENTERPRISE_PLAN } from "@/lib/constants";
 import { initRazorpay } from "@/lib/razorpay";
 import { useTLSUser } from "@/lib/auth";
 
@@ -192,7 +192,7 @@ export default function Dashboard() {
 
         <div id="pricing" style={{ marginBottom: 36 }}>
           <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", color: "#AAAAAA", marginBottom: 14 }}>
-            Credit Packs
+            Plans
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {CREDIT_PACKS.map((pack) => (
@@ -207,7 +207,7 @@ export default function Dashboard() {
                     {pack.name}
                   </div>
                   <div style={{ fontSize: 11, color: pack.popular ? "rgba(255,255,255,0.35)" : "#AAAAAA", marginTop: 2 }}>
-                    {pack.credits} reports · ₹{pack.perReport}/report
+                    {pack.credits} report{pack.credits > 1 ? "s" : ""} · ₹{pack.perReport}/report
                   </div>
                 </div>
                 <button
@@ -227,6 +227,22 @@ export default function Dashboard() {
                 </button>
               </div>
             ))}
+
+            {/* Enterprise — contact only */}
+            <div style={{ border: "1px solid #E8E8E8", borderRadius: 16, padding: "16px 18px", background: "white", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#0C1618" }}>{ENTERPRISE_PLAN.name}</div>
+                <div style={{ fontSize: 11, color: "#AAAAAA", marginTop: 2 }}>
+                  300+ reports · Custom volume · {ENTERPRISE_PLAN.tagline}
+                </div>
+              </div>
+              <a
+                href={`mailto:one@truffaire.in?subject=${encodeURIComponent("Enterprise Plan Inquiry — ARCORA")}`}
+                style={{ background: "transparent", color: "#004643", border: "1.5px solid #004643", borderRadius: 100, padding: "7px 16px", fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, textDecoration: "none" }}
+              >
+                Contact Us
+              </a>
+            </div>
           </div>
         </div>
 

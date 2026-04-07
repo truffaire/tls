@@ -1,8 +1,8 @@
-// ── CREDIT PACKS ──────────────────────────────────────────────
+// ── CREDIT PACKS (Razorpay payable plans) ─────────────────────
 export const CREDIT_PACKS = [
   {
-    id:        "single",
-    name:      "Single",
+    id:        "scout",
+    name:      "Scout",
     price:     119,
     credits:   1,
     perReport: 119,
@@ -14,8 +14,8 @@ export const CREDIT_PACKS = [
     ],
   },
   {
-    id:        "season",
-    name:      "Season",
+    id:        "advisor",
+    name:      "Advisor",
     price:     599,
     credits:   10,
     perReport: 59,
@@ -28,8 +28,8 @@ export const CREDIT_PACKS = [
     ],
   },
   {
-    id:        "pro",
-    name:      "Pro",
+    id:        "agronomist",
+    name:      "Agronomist",
     price:     2499,
     credits:   100,
     perReport: 24,
@@ -42,8 +42,8 @@ export const CREDIT_PACKS = [
     ],
   },
   {
-    id:        "institution",
-    name:      "Institution",
+    id:        "extension",
+    name:      "Extension",
     price:     7999,
     credits:   300,
     perReport: 26,
@@ -56,6 +56,19 @@ export const CREDIT_PACKS = [
     ],
   },
 ] as const;
+
+// ── ENTERPRISE PLAN (contact-only, no Razorpay) ───────────────
+export const ENTERPRISE_PLAN = {
+  id:      "enterprise",
+  name:    "Enterprise",
+  tagline: "For institutions, governments and large FPOs",
+  features: [
+    "300+ reports — custom volume",
+    "Multi-user management",
+    "Dedicated account support",
+    "Custom integrations available",
+  ],
+} as const;
 
 // ── CROPS ──────────────────────────────────────────────────────
 export const FEATURED_CROPS = [

@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTLSAuth, useTLSClerk } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
-import { CREDIT_PACKS } from "@/lib/constants";
+import { CREDIT_PACKS, ENTERPRISE_PLAN } from "@/lib/constants";
 
 // ── Responsive CSS injected once ─────────────────────────────────
 const GLOBAL_CSS = `
@@ -179,9 +179,10 @@ const GLOBAL_CSS = `
 `;
 
 const PREVENTS: Record<string, string> = {
-  starter: "₹5,000–₹15,000",
-  farm:    "₹15,000–₹60,000",
-  agro:    "₹40,000–₹1,50,000",
+  scout:      "₹5,000–₹15,000",
+  advisor:    "₹15,000–₹60,000",
+  agronomist: "₹40,000–₹1,50,000",
+  extension:  "₹1,50,000+",
 };
 
 export default function Landing() {
@@ -328,7 +329,7 @@ export default function Landing() {
             {[
               { n: 1, title: "Upload 1–3 photos",        desc: "Any device. Camera or gallery. Multiple angles improve accuracy." },
               { n: 2, title: "Select crop + location",   desc: "Region, soil type, and weather are automatically factored into diagnosis." },
-              { n: 3, title: "Pay one credit",            desc: "₹69–₹209 depending on pack. Diagnosis starts only after payment." },
+              { n: 3, title: "Pay one credit",            desc: "₹24–₹119 per report depending on plan. Diagnosis starts only after payment." },
               { n: 4, title: "Get your action plan",     desc: "Not just a diagnosis — a complete decision system with treatment timeline, economic impact, and follow-up guidance." },
             ].map((step, i) => (
               <div key={step.n} style={{ display: "contents" }}>
@@ -539,8 +540,9 @@ export default function Landing() {
           </div>
           <div className="pricing-cards fade-up">
             {CREDIT_PACKS.map((pack) => (
-              <PricingCard key={pack.id} pack={pack} onBuy={handleBuy} prevents={PREVENTS[pack.id] ?? ""} />
+              <PricingCard key={pack.id} pack={pack} onBuy={handleBuy} prevents={PREVENTS[pack.id as string] ?? ""} />
             ))}
+            <EnterprisePricingCard />
           </div>
         </div>
       </section>
@@ -568,7 +570,7 @@ export default function Landing() {
               <strong style={{ fontWeight: 700 }}>cost you the season.</strong>
             </h2>
             <p style={{ fontSize: 16, fontWeight: 300, color: "rgba(255,255,255,0.55)", lineHeight: 1.65, maxWidth: 420, margin: "0 auto 32px" }}>
-              ₹209 for a complete diagnosis. Farmers who act early save an average of ₹25,000 per acre per season.
+              ₹119 for a single scan. Farmers who act early save an average of ₹25,000 per acre per season.
             </p>
             <div style={{ display: "flex", justifyContent: "center" }}>
               <button onClick={handleScan} className="cta-btn" style={{ background: "#004643", width: "auto", minWidth: 220 }}>
@@ -736,6 +738,41 @@ function PricingCard({ pack, onBuy, prevents }: { pack: typeof CREDIT_PACKS[numb
       <button onClick={onBuy} className="pricing-buy-btn" style={{ width: "100%", marginTop: 20, padding: 14, borderRadius: 12, fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500, cursor: "pointer", letterSpacing: "0.01em", background: dark ? "white" : "transparent", color: "#0C1618", border: dark ? "none" : "1.5px solid #E8E8E8", transition: "opacity 0.18s" }}>
         Buy {pack.name}
       </button>
+    </div>
+  );
+}
+
+// ── EnterprisePricingCard ────────────────────────────────────────
+function EnterprisePricingCard() {
+  const plan = ENTERPRISE_PLAN;
+  return (
+    <div className="pricing-card" style={{ border: "1px solid #E8E8E8", borderRadius: 20, padding: 24, background: "white", position: "relative" }}>
+      <div style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase" as const, letterSpacing: "0.09em", color: "#AAAAAA", marginBottom: 10 }}>{plan.name}</div>
+      <div style={{ fontSize: 40, fontWeight: 300, letterSpacing: "-0.04em", color: "#0C1618", lineHeight: 1 }}>
+        Custom
+      </div>
+      <div style={{ fontSize: 12, color: "#AAAAAA", marginTop: 5, fontWeight: 300 }}>
+        300+ reports — Custom volume available
+      </div>
+      <div style={{ fontSize: 11, color: "#004643", fontWeight: 500, marginTop: 6 }}>
+        {plan.tagline}
+      </div>
+      <div style={{ height: 1, background: "#F5F5F5", margin: "18px 0" }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {plan.features.map((f) => (
+          <div key={f} style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13, fontWeight: 300, color: "#666666" }}>
+            <CheckIcon />{f}
+          </div>
+        ))}
+      </div>
+      <a
+        href={`mailto:one@truffaire.in?subject=${encodeURIComponent("Enterprise Plan Inquiry — ARCORA")}`}
+        style={{ display: "block", width: "100%", marginTop: 20, padding: 14, borderRadius: 12, fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500, cursor: "pointer", letterSpacing: "0.01em", background: "transparent", color: "#004643", border: "1.5px solid #004643", transition: "all 0.18s", textAlign: "center", textDecoration: "none", boxSizing: "border-box" as const }}
+        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#e8f0ef"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
+      >
+        Contact Us
+      </a>
     </div>
   );
 }

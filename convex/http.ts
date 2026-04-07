@@ -10,10 +10,10 @@ const CORS_HEADERS = {
 };
 
 const PACK_AMOUNTS: Record<string, number> = {
-  single:      119,
-  season:      599,
-  pro:         2499,
-  institution: 7999,
+  scout:       119,
+  advisor:     599,
+  agronomist:  2499,
+  extension:   7999,
 };
 
 export const createOrder = httpAction(async (_ctx, request) => {
